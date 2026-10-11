@@ -144,6 +144,9 @@ the AI extraction: receipts are saved and you can type the details by hand.
 | POST | `/household/settlements` | Record that the logged-in user paid a member back |
 | GET | `/household/settlements` | The household's recorded payments |
 | DELETE | `/household/settlements/{id}` | Undo a payment (only the person who recorded it) |
+| POST, GET | `/recurring` | Create or list monthly recurring costs |
+| PUT, DELETE | `/recurring/{id}` | Change, stop or delete a recurring cost |
+| POST | `/recurring/run` | Make the monthly expenses that are due (safe to call again) |
 
 Every `/receipts`, `/expenses` and `/stats` endpoint needs a login and works
 only on the logged-in user's own rows.
@@ -230,7 +233,7 @@ receipt-tracker/
 │   └── tests/
 ├── frontend/
 │   └── src/
-│       ├── app/            pages (Upload, Review, Expenses, Dashboard, Split bill, Log in, Sign up)
+│       ├── app/            pages (Upload, Review, Expenses, Dashboard, Split bill, Recurring, Log in, Sign up)
 │       ├── components/     React components and their tests
 │       └── lib/            API client, generated types, formatting helpers
 ├── eval/                   test receipts, labels and results
@@ -279,6 +282,12 @@ receipt-tracker/
   The server works out the parts from the items; parts sent by the browser
   are ignored. The page shows a live summary from the same server code
   (`/household/split-preview`), so what you see is what gets saved.
+- **Recurring costs cannot be made twice.** Each monthly expense records the
+  recurring cost and the month it is for, and the database has a unique rule
+  on that pair. The run that makes them can be called any number of times,
+  even at the same moment, and each month still gets one expense. There is
+  no background scheduler: the app calls the run when it opens and catches
+  up on any months it missed.
 - **Paying someone back is not an expense.** A settlement only moves the
   balance, and only the person who paid can record or undo it.
 - **The balance is netted.** Each member's position is what they are owed

@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-import { getCurrentUser, type User } from "@/lib/api";
+import { getCurrentUser, runRecurring, type User } from "@/lib/api";
 
 export type AuthStatus =
   | { state: "loading" }
@@ -34,6 +34,17 @@ export function useAuth(): AuthContextValue {
 /** Asks the backend once who is logged in and shares the answer with the app. */
 export default function AuthProvider({ children }: { children: ReactNode }) {
   const [auth, setAuth] = useState<AuthStatus>({ state: "loading" });
+  const signedInUserId = auth.state === "signedIn" ? auth.user.id : null;
+
+  // Each time someone is signed in (the app opens, or they log in), make the
+  // monthly expenses that have become due. The backend makes each one only
+  // once, so calling this often is harmless. If it fails, nothing is lost:
+  // the next visit tries again.
+  useEffect(() => {
+    if (signedInUserId !== null) {
+      runRecurring().catch(() => {});
+    }
+  }, [signedInUserId]);
 
   // The login cookie is HttpOnly, so this code cannot read it. The only way
   // to know who is logged in is to ask the backend.

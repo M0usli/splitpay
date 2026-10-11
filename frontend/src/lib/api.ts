@@ -27,6 +27,8 @@ export type Member = Schemas["MemberRead"];
 export type SharedExpense = Schemas["SharedExpenseRead"];
 export type Balance = Schemas["BalanceRead"];
 export type Settlement = Schemas["SettlementRead"];
+export type Recurring = Schemas["RecurringRead"];
+export type RecurringWrite = Schemas["RecurringWrite"];
 export type User = Schemas["UserRead"];
 export type Credentials = Schemas["Credentials"];
 
@@ -181,6 +183,30 @@ export function recordSettlement(toUserId: number, amount: string): Promise<Sett
 
 export function deleteSettlement(id: number): Promise<void> {
   return request(`/household/settlements/${id}`, { method: "DELETE" });
+}
+
+export function listRecurring(): Promise<Recurring[]> {
+  return request("/recurring");
+}
+
+export function createRecurring(recurring: RecurringWrite): Promise<Recurring> {
+  return request("/recurring", jsonRequest("POST", recurring));
+}
+
+export function updateRecurring(id: number, recurring: RecurringWrite): Promise<Recurring> {
+  return request(`/recurring/${id}`, jsonRequest("PUT", recurring));
+}
+
+export function deleteRecurring(id: number): Promise<void> {
+  return request(`/recurring/${id}`, { method: "DELETE" });
+}
+
+/**
+ * Make the monthly expenses that are due and do not exist yet. Safe to call
+ * any number of times. Returns the expenses it made.
+ */
+export function runRecurring(): Promise<Expense[]> {
+  return request("/recurring/run", { method: "POST" });
 }
 
 /** Which expenses to show. An empty string means "no filter". */

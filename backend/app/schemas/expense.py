@@ -95,5 +95,7 @@ class ExpenseRead(ExpenseBase):
     is_shared: bool
     # Empty for a private expense.
     shares: list[Share]
+    # The recurring cost this expense was made from, if any.
+    recurring_id: int | None
     # The item-by-item choices, when the expense was split that way.
     split_items: list[SplitItem] | None

@@ -446,6 +446,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/recurring": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Recurring
+         * @description The user's recurring costs: active ones first, then by day of the month.
+         */
+        get: operations["list_recurring_recurring_get"];
+        put?: never;
+        /** Create Recurring */
+        post: operations["create_recurring_recurring_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recurring/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Recurring
+         * @description Make every expense that is due and does not exist yet.
+         *
+         *     The app calls this when it opens. Calling it again changes nothing: each
+         *     recurring cost gets at most one expense per month.
+         */
+        post: operations["run_recurring_recurring_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recurring/{recurring_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Recurring
+         * @description Change a recurring cost, or stop it with `is_active: false`.
+         *
+         *     Expenses already made are not changed.
+         */
+        put: operations["update_recurring_recurring__recurring_id__put"];
+        post?: never;
+        /**
+         * Delete Recurring
+         * @description Delete a recurring cost. The expenses it already made are kept.
+         */
+        delete: operations["delete_recurring_recurring__recurring_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -578,6 +648,8 @@ export interface components {
             is_shared: boolean;
             /** Shares */
             shares: components["schemas"]["Share-Output"][];
+            /** Recurring Id */
+            recurring_id: number | null;
             /** Split Items */
             split_items: components["schemas"]["SplitItem-Output"][] | null;
         };
@@ -795,6 +867,77 @@ export interface components {
          */
         ReceiptStatus: "pending" | "extracted" | "failed";
         /**
+         * RecurringRead
+         * @description A recurring cost as returned by the API.
+         */
+        RecurringRead: {
+            /** Id */
+            id: number;
+            /** Merchant */
+            merchant: string;
+            /** Total */
+            total: string;
+            /** Currency */
+            currency: string;
+            category: components["schemas"]["Category"];
+            /** Notes */
+            notes: string | null;
+            /** Day Of Month */
+            day_of_month: number;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /** Is Active */
+            is_active: boolean;
+            /** Is Shared */
+            is_shared: boolean;
+            /** Shares */
+            shares: components["schemas"]["Share-Output"][] | null;
+            /** Next Date */
+            next_date: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * RecurringWrite
+         * @description Request body for creating or changing a recurring cost.
+         */
+        RecurringWrite: {
+            /** Merchant */
+            merchant: string;
+            /** Total */
+            total: number | string;
+            /**
+             * Currency
+             * @default CAD
+             */
+            currency: string;
+            category: components["schemas"]["Category"];
+            /** Notes */
+            notes?: string | null;
+            /** Day Of Month */
+            day_of_month: number;
+            /** Start Date */
+            start_date?: string | null;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
+            /**
+             * Is Shared
+             * @default false
+             */
+            is_shared: boolean;
+            /** Shares */
+            shares?: components["schemas"]["Share-Input"][] | null;
+        };
+        /**
          * SettlementCreate
          * @description Request body for recording that the logged-in user paid a member back.
          */
@@ -889,6 +1032,8 @@ export interface components {
             is_shared: boolean;
             /** Shares */
             shares: components["schemas"]["Share-Output"][];
+            /** Recurring Id */
+            recurring_id: number | null;
             /** Split Items */
             split_items: components["schemas"]["SplitItem-Output"][] | null;
             paid_by: components["schemas"]["MemberRead"];
@@ -1846,6 +1991,171 @@ export interface operations {
             header?: never;
             path: {
                 settlement_id: number;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_recurring_recurring_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_recurring_recurring_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurringWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_recurring_recurring_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_recurring_recurring__recurring_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recurring_id: number;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurringWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_recurring_recurring__recurring_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recurring_id: number;
             };
             cookie?: {
                 session?: string | null;
