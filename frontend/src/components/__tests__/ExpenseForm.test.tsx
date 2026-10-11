@@ -215,3 +215,30 @@ test("a saved item split reopens with the same people ticked", () => {
   expect(screen.getByLabelText("Me shares item 1")).not.toBeChecked();
   expect(screen.getByLabelText("alex shares item 1")).toBeChecked();
 });
+
+test("sharing a receipt that has items goes straight to choosing who each item is for", async () => {
+  household.info = WITH_ROOMMATE;
+  render(
+    <ExpenseForm
+      submitLabel="Save"
+      onSubmit={vi.fn()}
+      initialItems={[{ name: "MILK", quantity: null, price: "6.49", is_taxable: false }]}
+    />,
+  );
+
+  await userEvent.click(screen.getByLabelText("Share this expense with my household"));
+
+  expect(screen.getByLabelText("By item")).toBeChecked();
+  expect(screen.getByLabelText("Name of item 1")).toHaveValue("MILK");
+  expect(screen.getByLabelText("Me shares item 1")).toBeChecked();
+  expect(screen.getByLabelText("alex shares item 1")).toBeChecked();
+});
+
+test("sharing an expense without items still starts with an equal split", async () => {
+  household.info = WITH_ROOMMATE;
+  render(<ExpenseForm submitLabel="Save" onSubmit={vi.fn()} />);
+
+  await userEvent.click(screen.getByLabelText("Share this expense with my household"));
+
+  expect(screen.getByLabelText("Equally")).toBeChecked();
+});

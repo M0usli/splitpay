@@ -282,6 +282,8 @@ export default function ExpenseForm({
           myId={householdInfo.myId}
           value={sharing}
           onChange={handleSharingChange}
+          // A receipt with items is most likely shared item by item.
+          startMode={initialItems !== undefined && initialItems.length > 0 ? "item" : "equal"}
         />
       )}
 
