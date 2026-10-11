@@ -17,6 +17,9 @@ app = FastAPI(title=settings.app_name)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.frontend_origin],
+    # Lets the browser send the session cookie on requests from the frontend,
+    # and lets the frontend's code read the answers to them.
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )

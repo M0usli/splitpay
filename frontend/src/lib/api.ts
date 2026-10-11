@@ -16,6 +16,8 @@ export type ExpenseUpdate = Schemas["ExpenseUpdate"];
 export type Receipt = Schemas["ReceiptRead"];
 export type ExtractedFields = Schemas["ExtractedFields"];
 export type StatsSummary = Schemas["StatsSummary"];
+export type User = Schemas["UserRead"];
+export type Credentials = Schemas["Credentials"];
 
 // Variables starting with NEXT_PUBLIC_ are made available to browser code.
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -57,7 +59,9 @@ async function readErrorMessage(response: Response): Promise<string> {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(`${API_URL}${path}`, init);
+    // The backend is a different origin (another port), so the browser only
+    // sends the login cookie along when we ask for it with "include".
+    response = await fetch(`${API_URL}${path}`, { credentials: "include", ...init });
   } catch {
     throw new ApiError("Could not reach the backend. Is it running?", 0);
   }
@@ -81,6 +85,32 @@ function jsonRequest(method: string, body: unknown): RequestInit {
 
 export function getHealth(): Promise<HealthResponse> {
   return request("/health");
+}
+
+/** Create an account. The backend also logs the new user in. */
+export function register(credentials: Credentials): Promise<User> {
+  return request("/auth/register", jsonRequest("POST", credentials));
+}
+
+export function login(credentials: Credentials): Promise<User> {
+  return request("/auth/login", jsonRequest("POST", credentials));
+}
+
+export function logout(): Promise<void> {
+  return request("/auth/logout", { method: "POST" });
+}
+
+/** The logged-in user, or null if nobody is logged in. */
+export async function getCurrentUser(): Promise<User | null> {
+  try {
+    return await request<User>("/auth/me");
+  } catch (error) {
+    // 401 is the backend's normal answer for "not logged in", not a failure.
+    if (error instanceof ApiError && error.status === 401) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 /** Which expenses to show. An empty string means "no filter". */

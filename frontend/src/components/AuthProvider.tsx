@@ -1,0 +1,58 @@
+"use client";
+
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+
+import { getCurrentUser, type User } from "@/lib/api";
+
+export type AuthStatus =
+  | { state: "loading" }
+  | { state: "signedOut" }
+  | { state: "signedIn"; user: User }
+  | { state: "error"; message: string };
+
+type AuthContextValue = {
+  auth: AuthStatus;
+  /** Call after a successful log-in or sign-up. */
+  signIn: (user: User) => void;
+  /** Call after a successful log-out. */
+  signOut: () => void;
+};
+
+// A context shares a value with every component below the provider, so the
+// nav bar and the pages can all ask "who is logged in?" without passing
+// props down through each layer.
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function useAuth(): AuthContextValue {
+  const value = useContext(AuthContext);
+  if (value === null) {
+    throw new Error("useAuth must be used inside <AuthProvider>");
+  }
+  return value;
+}
+
+/** Asks the backend once who is logged in and shares the answer with the app. */
+export default function AuthProvider({ children }: { children: ReactNode }) {
+  const [auth, setAuth] = useState<AuthStatus>({ state: "loading" });
+
+  // The login cookie is HttpOnly, so this code cannot read it. The only way
+  // to know who is logged in is to ask the backend.
+  useEffect(() => {
+    getCurrentUser()
+      .then((user) => {
+        setAuth(user === null ? { state: "signedOut" } : { state: "signedIn", user });
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : "Something went wrong";
+        setAuth({ state: "error", message });
+      });
+  }, []);
+
+  const value: AuthContextValue = {
+    auth,
+    signIn: (user) => setAuth({ state: "signedIn", user }),
+    signOut: () => setAuth({ state: "signedOut" }),
+  };
+
+  return <AuthContext value={value}>{children}</AuthContext>;
+}

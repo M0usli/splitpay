@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from "vitest";
 
-import { ApiError, deleteExpense, getExpense, listExpenses } from "@/lib/api";
+import { ApiError, deleteExpense, getCurrentUser, getExpense, listExpenses } from "@/lib/api";
 
 /** Replace the browser's fetch with a fake that answers with the given response. */
 function mockFetch(response: Response) {
@@ -18,7 +18,22 @@ test("listExpenses only sends the filters that are set", async () => {
 
   await listExpenses({ month: "2026-10", category: "" });
 
-  expect(fetchMock).toHaveBeenCalledWith("http://localhost:8000/expenses?month=2026-10", undefined);
+  expect(fetchMock).toHaveBeenCalledWith("http://localhost:8000/expenses?month=2026-10", {
+    // Every request carries the login cookie.
+    credentials: "include",
+  });
+});
+
+test("getCurrentUser gives null when nobody is logged in", async () => {
+  mockFetch(Response.json({ detail: "Not logged in" }, { status: 401 }));
+
+  await expect(getCurrentUser()).resolves.toBeNull();
+});
+
+test("getCurrentUser still reports other failures", async () => {
+  mockFetch(Response.json({ detail: "The database is not available" }, { status: 503 }));
+
+  await expect(getCurrentUser()).rejects.toThrow("The database is not available");
 });
 
 test("an error message from the API is passed on", async () => {
