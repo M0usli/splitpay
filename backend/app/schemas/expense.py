@@ -1,14 +1,23 @@
 import datetime
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.enums import Category
 
 # A non-negative amount with at most 2 decimal places. Sent as a string in
 # JSON (e.g. "12.50") so it never passes through a float.
 Money = Annotated[Decimal, Field(ge=0, max_digits=10, decimal_places=2)]
+
+
+class Share(BaseModel):
+    """One person's part of a shared expense."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    user_id: int
+    amount: Money
 
 
 class ExpenseBase(BaseModel):
@@ -24,7 +33,28 @@ class ExpenseBase(BaseModel):
     notes: str | None = None
 
 
-class ExpenseCreate(ExpenseBase):
+class ExpenseWrite(ExpenseBase):
+    """Fields for creating or changing an expense, including how it is shared."""
+
+    # Share this expense with the user's household.
+    is_shared: bool = False
+    # Each person's part. Leave it out to split the total equally among all
+    # members of the household. The parts must add up to the total.
+    shares: list[Share] | None = None
+
+    @model_validator(mode="after")
+    def shares_add_up_to_the_total(self) -> Self:
+        if not self.is_shared or self.shares is None:
+            return self
+        user_ids = [share.user_id for share in self.shares]
+        if len(user_ids) != len(set(user_ids)):
+            raise ValueError("each person can have only one share")
+        if sum(share.amount for share in self.shares) != self.total:
+            raise ValueError("the shares must add up to the total")
+        return self
+
+
+class ExpenseCreate(ExpenseWrite):
     """Request body for creating an expense.
 
     `was_edited` is not accepted here: the server works it out by comparing
@@ -34,7 +64,7 @@ class ExpenseCreate(ExpenseBase):
     receipt_id: int | None = None
 
 
-class ExpenseUpdate(ExpenseBase):
+class ExpenseUpdate(ExpenseWrite):
     """Request body for replacing an expense's editable fields."""
 
 
@@ -48,3 +78,6 @@ class ExpenseRead(ExpenseBase):
     receipt_id: int | None
     was_edited: bool
     created_at: datetime.datetime
+    is_shared: bool
+    # Empty for a private expense.
+    shares: list[Share]

@@ -1,5 +1,6 @@
 import csv
 import io
+from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy import select
@@ -10,8 +11,9 @@ from app.database import DbSession
 from app.dates import MonthQuery, month_range
 from app.enums import Category
 from app.extraction.schemas import DEFAULT_CURRENCY, ExtractedFields
-from app.models import Expense, Receipt, User
-from app.schemas.expense import ExpenseCreate, ExpenseRead, ExpenseUpdate
+from app.models import Expense, ExpenseShare, Receipt, User
+from app.schemas.expense import ExpenseCreate, ExpenseRead, ExpenseUpdate, ExpenseWrite
+from app.splitting import split_equally
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
@@ -55,9 +57,65 @@ def differs_from_extraction(values: dict, receipt: Receipt) -> bool:
     return any(values[field] != extracted[field] for field in EXTRACTED_FIELDS)
 
 
+# The sharing fields are not columns of the expense; they are handled by
+# work_out_shares and store_shares below.
+SHARING_FIELDS = {"is_shared", "shares"}
+
+
+def work_out_shares(db: Session, user: User, payload: ExpenseWrite) -> dict[int, Decimal] | None:
+    """Return each person's part of a shared expense, or None for a private one.
+
+    This checks the request and changes nothing, so it runs before anything
+    is written: a refused request leaves no half-saved expense behind.
+    """
+    if not payload.is_shared:
+        return None
+    if user.household_id is None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail="Join or create a household before sharing an expense"
+        )
+    member_ids = list(
+        db.scalars(select(User.id).where(User.household_id == user.household_id).order_by(User.id))
+    )
+
+    if payload.shares is None:
+        # No parts given: split equally among everyone. The payer comes first,
+        # so a cent that cannot be divided lands on the person who paid.
+        people = [user.id] + [member_id for member_id in member_ids if member_id != user.id]
+        return dict(zip(people, split_equally(payload.total, len(people)), strict=True))
+
+    parts = {share.user_id: share.amount for share in payload.shares}
+    if not set(parts) <= set(member_ids):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Shares can only go to members of your household",
+        )
+    return parts
+
+
+def store_shares(
+    db: Session, user: User, expense: Expense, parts: dict[int, Decimal] | None
+) -> None:
+    """Replace the expense's shares with `parts` (None makes it private)."""
+    # The old shares go first. Flushing sends those DELETEs to the database
+    # now, before new shares for the same people are inserted.
+    expense.shares.clear()
+    db.flush()
+
+    if parts is None:
+        expense.shared_household_id = None
+        return
+    expense.shared_household_id = user.household_id
+    expense.shares = [
+        ExpenseShare(user_id=member_id, amount=amount)
+        for member_id, amount in sorted(parts.items())
+    ]
+
+
 @router.post("", response_model=ExpenseRead, status_code=status.HTTP_201_CREATED)
 def create_expense(payload: ExpenseCreate, db: DbSession, user: CurrentUser) -> Expense:
-    values = payload.model_dump()
+    values = payload.model_dump(exclude=SHARING_FIELDS)
+    parts = work_out_shares(db, user, payload)
     was_edited = False
     if payload.receipt_id is not None:
         receipt = db.get(Receipt, payload.receipt_id)
@@ -68,6 +126,7 @@ def create_expense(payload: ExpenseCreate, db: DbSession, user: CurrentUser) -> 
     # The owner comes from the login session, never from the request body.
     expense = Expense(**values, was_edited=was_edited, user_id=user.id)
     db.add(expense)
+    store_shares(db, user, expense, parts)
     db.commit()
     db.refresh(expense)
     return expense
@@ -158,7 +217,8 @@ def update_expense(
     expense_id: int, payload: ExpenseUpdate, db: DbSession, user: CurrentUser
 ) -> Expense:
     expense = get_expense_or_404(db, user, expense_id)
-    new_values = payload.model_dump()
+    new_values = payload.model_dump(exclude=SHARING_FIELDS)
+    parts = work_out_shares(db, user, payload)
 
     if expense.receipt_id is not None:
         receipt = db.get(Receipt, expense.receipt_id)
@@ -167,6 +227,7 @@ def update_expense(
 
     for field, value in new_values.items():
         setattr(expense, field, value)
+    store_shares(db, user, expense, parts)
     db.commit()
     db.refresh(expense)
     return expense

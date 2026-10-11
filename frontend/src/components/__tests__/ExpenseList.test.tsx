@@ -25,6 +25,8 @@ const EXPENSES: Expense[] = [
     category: "Groceries",
     notes: null,
     was_edited: false,
+    is_shared: false,
+    shares: [],
     created_at: "2026-10-08T14:32:07Z",
   },
   {
@@ -39,6 +41,8 @@ const EXPENSES: Expense[] = [
     category: "Dining",
     notes: null,
     was_edited: false,
+    is_shared: false,
+    shares: [],
     created_at: "2026-10-03T08:14:00Z",
   },
 ];

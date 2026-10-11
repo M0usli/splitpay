@@ -134,6 +134,12 @@ the AI extraction: receipts are saved and you can type the details by hand.
 | POST | `/auth/login` | Log in; the session token comes back in an HttpOnly cookie |
 | POST | `/auth/logout` | End the current session |
 | GET | `/auth/me` | The logged-in user, or 401 |
+| POST | `/household` | Create a household and get its invite code |
+| GET | `/household` | The logged-in user's household and its members |
+| POST | `/household/join` | Join a household with an invite code |
+| POST | `/household/leave` | Leave the household |
+| GET | `/household/expenses` | The household's shared expenses, with who paid and each person's part |
+| GET | `/household/balance` | Each member's position and the payments that settle it, `?currency=` |
 
 Every `/receipts`, `/expenses` and `/stats` endpoint needs a login and works
 only on the logged-in user's own rows.
@@ -209,6 +215,7 @@ receipt-tracker/
 │   ├── app/
 │   │   ├── main.py         creates the FastAPI app
 │   │   ├── auth.py         password hashing, login sessions, current user
+│   │   ├── splitting.py    the arithmetic for splitting shared expenses
 │   │   ├── routers/        the HTTP endpoints
 │   │   ├── schemas/        Pydantic request and response shapes
 │   │   ├── models/         SQLAlchemy database tables
@@ -248,6 +255,15 @@ receipt-tracker/
   frontend asks `GET /auth/me` who is signed in and shares the answer through
   a React context. Sending signed-out visitors to the log-in page is done in
   the browser for convenience only; the backend is what enforces access.
+- **A split never loses a cent.** A shared expense stores each person's part
+  as an exact amount, and the parts must add up to the total. With no parts
+  given, the total is split equally among the household: everyone gets the
+  amount rounded down to the cent, and the leftover cents go to the first
+  people, starting with the payer.
+- **The balance is netted.** Each member's position is what they are owed
+  minus what they owe. The suggested payments match the biggest debtor with
+  the biggest creditor until everyone is at zero, so N people need at most
+  N - 1 payments.
 - **Each user sees only their own data.** Receipts and expenses carry a
   `user_id` taken from the login session, never from the request, and every
   query filters on it. Asking for someone else's row gives the same 404 as a
