@@ -91,6 +91,9 @@ test("adding a cost saves it and then makes any expense that is due", async () =
   expect(await screen.findByRole("status")).toHaveTextContent(
     "1 expense was added to your expenses.",
   );
+  // The form is empty again, ready for the next cost.
+  expect(screen.getByLabelText("What is it for?")).toHaveValue("");
+  expect(screen.getByLabelText("Amount each month")).toHaveValue(null);
 });
 
 test("stopping a cost keeps everything else about it", async () => {

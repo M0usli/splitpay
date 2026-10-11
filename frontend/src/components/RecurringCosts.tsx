@@ -67,6 +67,7 @@ function toWrite(cost: Recurring): RecurringWrite {
 export default function RecurringCosts() {
   const [status, setStatus] = useState<Status>({ state: "loading" });
   const [editing, setEditing] = useState<Recurring | null>(null);
+  const [formVersion, setFormVersion] = useState(0);
   const [isBusy, setIsBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -103,6 +104,8 @@ export default function RecurringCosts() {
       }
       setStatus({ state: "loaded", costs: await listRecurring() });
       setEditing(null);
+      // A new number makes the form below start again, empty.
+      setFormVersion((version) => version + 1);
     } catch (error) {
       setActionError(errorMessage(error));
       // Let the form know it did not work, so it stays open with its values.
@@ -221,7 +224,7 @@ export default function RecurringCosts() {
         {/* A changed key makes React build a fresh form, so its inputs start
             from the cost being edited, or empty for a new one. */}
         <RecurringForm
-          key={editing?.id ?? "new"}
+          key={`${editing?.id ?? "new"}-${formVersion}`}
           editing={editing}
           isBusy={isBusy}
           onCancel={() => setEditing(null)}
