@@ -140,6 +140,9 @@ the AI extraction: receipts are saved and you can type the details by hand.
 | POST | `/household/leave` | Leave the household |
 | GET | `/household/expenses` | The household's shared expenses, with who paid and each person's part |
 | GET | `/household/balance` | Each member's position and the payments that settle it, `?currency=` |
+| POST | `/household/settlements` | Record that the logged-in user paid a member back |
+| GET | `/household/settlements` | The household's recorded payments |
+| DELETE | `/household/settlements/{id}` | Undo a payment (only the person who recorded it) |
 
 Every `/receipts`, `/expenses` and `/stats` endpoint needs a login and works
 only on the logged-in user's own rows.
@@ -226,7 +229,7 @@ receipt-tracker/
 │   └── tests/
 ├── frontend/
 │   └── src/
-│       ├── app/            pages (Upload, Review, Expenses, Dashboard, Log in, Sign up)
+│       ├── app/            pages (Upload, Review, Expenses, Dashboard, Split bill, Log in, Sign up)
 │       ├── components/     React components and their tests
 │       └── lib/            API client, generated types, formatting helpers
 ├── eval/                   test receipts, labels and results
@@ -260,6 +263,12 @@ receipt-tracker/
   given, the total is split equally among the household: everyone gets the
   amount rounded down to the cent, and the leftover cents go to the first
   people, starting with the payer.
+- **Splits typed in the browser are worked out in whole cents.** A percent
+  or equal split chosen on the form is turned into exact amounts with
+  integer arithmetic (`frontend/src/lib/split.ts`), and the backend checks
+  again that they add up to the total.
+- **Paying someone back is not an expense.** A settlement only moves the
+  balance, and only the person who paid can record or undo it.
 - **The balance is netted.** Each member's position is what they are owed
   minus what they owe. The suggested payments match the biggest debtor with
   the biggest creditor until everyone is at zero, so N people need at most

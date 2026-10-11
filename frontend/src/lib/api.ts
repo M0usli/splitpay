@@ -18,6 +18,11 @@ export type Share = Schemas["Share-Output"];
 export type Receipt = Schemas["ReceiptRead"];
 export type ExtractedFields = Schemas["ExtractedFields"];
 export type StatsSummary = Schemas["StatsSummary"];
+export type Household = Schemas["HouseholdRead"];
+export type Member = Schemas["MemberRead"];
+export type SharedExpense = Schemas["SharedExpenseRead"];
+export type Balance = Schemas["BalanceRead"];
+export type Settlement = Schemas["SettlementRead"];
 export type User = Schemas["UserRead"];
 export type Credentials = Schemas["Credentials"];
 
@@ -113,6 +118,53 @@ export async function getCurrentUser(): Promise<User | null> {
     }
     throw error;
   }
+}
+
+/** The logged-in user's household, or null if they are not in one. */
+export async function getHousehold(): Promise<Household | null> {
+  try {
+    return await request<Household>("/household");
+  } catch (error) {
+    // 404 is the backend's normal answer for "you are not in a household".
+    if (error instanceof ApiError && error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export function createHousehold(name: string): Promise<Household> {
+  return request("/household", jsonRequest("POST", { name }));
+}
+
+export function joinHousehold(inviteCode: string): Promise<Household> {
+  return request("/household/join", jsonRequest("POST", { invite_code: inviteCode }));
+}
+
+export function leaveHousehold(): Promise<void> {
+  return request("/household/leave", { method: "POST" });
+}
+
+export function listSharedExpenses(): Promise<SharedExpense[]> {
+  return request("/household/expenses");
+}
+
+/** Each member's position and the payments that would settle the household. */
+export function getBalance(): Promise<Balance> {
+  return request("/household/balance");
+}
+
+export function listSettlements(): Promise<Settlement[]> {
+  return request("/household/settlements");
+}
+
+/** Record that the logged-in user paid `toUserId` back. */
+export function recordSettlement(toUserId: number, amount: string): Promise<Settlement> {
+  return request("/household/settlements", jsonRequest("POST", { to_user_id: toUserId, amount }));
+}
+
+export function deleteSettlement(id: number): Promise<void> {
+  return request(`/household/settlements/${id}`, { method: "DELETE" });
 }
 
 /** Which expenses to show. An empty string means "no filter". */

@@ -378,6 +378,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/household/settlements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Settlements */
+        get: operations["list_settlements_household_settlements_get"];
+        put?: never;
+        /**
+         * Record Settlement
+         * @description Record that the logged-in user paid another member back.
+         *
+         *     Only the person who paid can record it, so nobody can clear their own
+         *     debt by claiming someone else paid.
+         */
+        post: operations["record_settlement_household_settlements_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/household/settlements/{settlement_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Settlement
+         * @description Remove a payment recorded by mistake. Only the person who recorded it can.
+         */
+        delete: operations["delete_settlement_household_settlements__settlement_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -689,6 +733,40 @@ export interface components {
          * @enum {string}
          */
         ReceiptStatus: "pending" | "extracted" | "failed";
+        /**
+         * SettlementCreate
+         * @description Request body for recording that the logged-in user paid a member back.
+         */
+        SettlementCreate: {
+            /** To User Id */
+            to_user_id: number;
+            /** Amount */
+            amount: number | string;
+            /**
+             * Currency
+             * @default CAD
+             */
+            currency: string;
+        };
+        /**
+         * SettlementRead
+         * @description A recorded payment between two members.
+         */
+        SettlementRead: {
+            /** Id */
+            id: number;
+            paid_by: components["schemas"]["MemberRead"];
+            paid_to: components["schemas"]["MemberRead"];
+            /** Amount */
+            amount: string;
+            /** Currency */
+            currency: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /**
          * Share
          * @description One person's part of a shared expense.
@@ -1530,6 +1608,103 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["BalanceRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_settlements_household_settlements_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettlementRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_settlement_household_settlements_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettlementCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettlementRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_settlement_household_settlements__settlement_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                settlement_id: number;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

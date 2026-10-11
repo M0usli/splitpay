@@ -10,6 +10,7 @@ const links = [
   { href: "/", label: "Upload" },
   { href: "/expenses", label: "Expenses" },
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/household", label: "Split bill" },
   { href: "/expenses/new", label: "Add expense" },
 ];
 
