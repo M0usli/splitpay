@@ -133,6 +133,21 @@ If the page does not load, Windows Firewall is probably blocking ports 3000
 and 8000 for other devices. The app is only reachable inside your own
 network, over plain HTTP, so use it on a network you trust.
 
+### Connect a sandbox bank
+
+The Bank page imports transactions from a bank and lets you turn them into
+expenses. It uses [Plaid](https://plaid.com)'s **sandbox**: pretend banks
+with pretend transactions. The app cannot be pointed at real accounts.
+
+1. Sign up for a free account at https://dashboard.plaid.com.
+2. Open Developers > Keys and copy the client id and the *Sandbox* secret.
+3. In `.env`, set `PLAID_CLIENT_ID` and `PLAID_SECRET`.
+4. Run `docker compose up -d`, open the Bank page and choose "Connect a
+   sandbox bank". In Plaid's window pick any bank and sign in with
+   `user_good` / `pass_good`.
+5. Choose "Import transactions". A bank that was just connected can need a
+   few seconds before its transactions are ready.
+
 ## API
 
 | Method | Path | Purpose |
@@ -163,6 +178,12 @@ network, over plain HTTP, so use it on a network you trust.
 | POST, GET | `/recurring` | Create or list monthly recurring costs |
 | PUT, DELETE | `/recurring/{id}` | Change, stop or delete a recurring cost |
 | POST | `/recurring/run` | Make the monthly expenses that are due (safe to call again) |
+| GET | `/bank/status` | Whether the sandbox keys are set, and the connected banks |
+| POST | `/bank/link-token` | A token that opens Plaid's "choose your bank" window |
+| POST, DELETE | `/bank/connections`, `/bank/connections/{id}` | Connect or remove a bank |
+| POST | `/bank/sync` | Import new transactions (safe to call again) |
+| GET | `/bank/transactions` | Imported transactions waiting for review |
+| POST | `/bank/transactions/{id}/add`, `.../ignore` | Make an expense from one, or hide it |
 
 Every `/receipts`, `/expenses` and `/stats` endpoint needs a login and works
 only on the logged-in user's own rows.
@@ -239,6 +260,7 @@ receipt-tracker/
 │   │   ├── main.py         creates the FastAPI app
 │   │   ├── auth.py         password hashing, login sessions, current user
 │   │   ├── splitting.py    the arithmetic for splitting shared expenses
+│   │   ├── bank/           the bank-data interface and the Plaid sandbox client
 │   │   ├── routers/        the HTTP endpoints
 │   │   ├── schemas/        Pydantic request and response shapes
 │   │   ├── models/         SQLAlchemy database tables
@@ -249,7 +271,7 @@ receipt-tracker/
 │   └── tests/
 ├── frontend/
 │   └── src/
-│       ├── app/            pages (Upload, Review, Expenses, Dashboard, Split bill, Recurring, Log in, Sign up)
+│       ├── app/            pages (Upload, Review, Expenses, Dashboard, Split bill, Recurring, Bank, Log in, Sign up)
 │       ├── components/     React components and their tests
 │       └── lib/            API client, generated types, formatting helpers
 ├── eval/                   test receipts, labels and results
@@ -298,6 +320,14 @@ receipt-tracker/
   The server works out the parts from the items; parts sent by the browser
   are ignored. The page shows a live summary from the same server code
   (`/household/split-preview`), so what you see is what gets saved.
+- **The bank connection is sandbox only, by construction.** The Plaid
+  address is a constant in the code and there is no setting to change it.
+  The secret key and each bank's access token stay on the backend; the
+  browser only ever handles short-lived, one-time tokens. Plaid sits behind
+  the same kind of small interface as OCR and the LLM, so tests use a fake.
+- **Imported transactions are reviewed, not trusted.** They wait in a list
+  until the user adds or ignores each one. Plaid's id for a transaction is
+  unique in the database, so importing twice cannot duplicate it.
 - **Recurring costs cannot be made twice.** Each monthly expense records the
   recurring cost and the month it is for, and the database has a unique rule
   on that pair. The run that makes them can be called any number of times,

@@ -27,6 +27,8 @@ export type Member = Schemas["MemberRead"];
 export type SharedExpense = Schemas["SharedExpenseRead"];
 export type Balance = Schemas["BalanceRead"];
 export type Settlement = Schemas["SettlementRead"];
+export type BankStatus = Schemas["BankStatus"];
+export type BankTransaction = Schemas["BankTransactionRead"];
 export type Recurring = Schemas["RecurringRead"];
 export type RecurringWrite = Schemas["RecurringWrite"];
 export type User = Schemas["UserRead"];
@@ -211,6 +213,47 @@ export function recordSettlement(toUserId: number, amount: string): Promise<Sett
 
 export function deleteSettlement(id: number): Promise<void> {
   return request(`/household/settlements/${id}`, { method: "DELETE" });
+}
+
+/** Whether the bank feature is set up, and the banks this user connected. */
+export function getBankStatus(): Promise<BankStatus> {
+  return request("/bank/status");
+}
+
+/** The token that opens Plaid's "choose your bank" window. */
+export function createBankLinkToken(): Promise<{ link_token: string }> {
+  return request("/bank/link-token", { method: "POST" });
+}
+
+/** Hand the backend the one-time token Plaid gave the browser. */
+export function connectBank(publicToken: string, institutionName: string): Promise<unknown> {
+  return request(
+    "/bank/connections",
+    jsonRequest("POST", { public_token: publicToken, institution_name: institutionName }),
+  );
+}
+
+export function removeBankConnection(id: number): Promise<void> {
+  return request(`/bank/connections/${id}`, { method: "DELETE" });
+}
+
+/** Import what is new at every connected bank. Safe to call again. */
+export function syncBank(): Promise<{ imported: number; removed: number }> {
+  return request("/bank/sync", { method: "POST" });
+}
+
+/** Imported transactions that are waiting for a decision. */
+export function listBankTransactions(): Promise<BankTransaction[]> {
+  return request("/bank/transactions");
+}
+
+/** Make an expense from an imported transaction. */
+export function addBankTransaction(id: number, category: Category): Promise<Expense> {
+  return request(`/bank/transactions/${id}/add`, jsonRequest("POST", { category }));
+}
+
+export function ignoreBankTransaction(id: number): Promise<BankTransaction> {
+  return request(`/bank/transactions/${id}/ignore`, { method: "POST" });
 }
 
 export function listRecurring(): Promise<Recurring[]> {

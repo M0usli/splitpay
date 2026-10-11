@@ -37,7 +37,7 @@ test("a signed-out visitor sees only the app name", () => {
 test("a signed-in user gets a link to every page, and their email", () => {
   render(<NavBar />);
 
-  for (const name of ["Upload", "Expenses", "Dashboard", "Split bill", "Recurring", "Add expense"]) {
+  for (const name of ["Upload", "Expenses", "Dashboard", "Split bill", "Recurring", "Bank", "Add expense"]) {
     expect(screen.getByRole("link", { name })).toBeInTheDocument();
   }
   expect(screen.getByText("sam@example.com")).toBeInTheDocument();

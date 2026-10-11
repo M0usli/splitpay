@@ -15,5 +15,7 @@ pypdfium2>=4.30,<6.0
 # Accounts: password hashing, and the email check behind Pydantic's EmailStr
 argon2-cffi>=25.1,<26.0
 email-validator>=2.2,<3.0
+# HTTP client, used to call the bank-data service (Plaid sandbox)
+httpx2>=2.13,<3.0
 # LLM extraction (Claude)
 anthropic>=1.0,<2.0

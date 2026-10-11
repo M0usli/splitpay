@@ -34,6 +34,9 @@ services:
       EVAL_DIR: /eval
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-5-5}
+      # Optional: Plaid SANDBOX keys for the pretend-bank connection.
+      PLAID_CLIENT_ID: ${PLAID_CLIENT_ID:-}
+      PLAID_SECRET: ${PLAID_SECRET:-}
       # File-change events don't cross from Windows into the container,
       # so the reloader has to poll for changes instead.
       WATCHFILES_FORCE_POLLING: "true"

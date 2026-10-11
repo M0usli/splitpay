@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     session_days: int = 30
     cookie_secure: bool = False
 
+    # Bank connection through Plaid's SANDBOX (pretend banks only). The keys
+    # come from the environment and are never hardcoded.
+    plaid_client_id: str = ""
+    plaid_secret: str = ""
+
     # LLM extraction. The key comes from the environment and is never hardcoded.
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-haiku-5-5"
