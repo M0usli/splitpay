@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.expense import ExpenseRead
+from app.schemas.expense import ExpenseRead, Money, SplitItem
 from app.schemas.stats import Amount
 
 
@@ -41,6 +41,32 @@ class SharedExpenseRead(ExpenseRead):
     """A shared expense as the whole household sees it, with who paid."""
 
     paid_by: MemberRead
+
+
+class SplitPreviewRequest(BaseModel):
+    """Request body for trying out an item-by-item split before saving it."""
+
+    split_items: list[SplitItem] = Field(min_length=1, max_length=300)
+    tax: Money | None = None
+    total: Money
+
+
+class PersonSplitRead(BaseModel):
+    """What one member would pay, and what it is made of."""
+
+    member: MemberRead
+    items: Amount
+    tax: Amount
+    adjustment: Amount
+    amount: Amount
+
+
+class SplitPreviewRead(BaseModel):
+    """The result of an item-by-item split. The amounts add up to the total."""
+
+    people: list[PersonSplitRead]
+    # total - (items + tax): money on the receipt that no line accounts for.
+    difference: Amount
 
 
 class SettlementCreate(BaseModel):

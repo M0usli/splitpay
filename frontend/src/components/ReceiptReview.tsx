@@ -161,6 +161,7 @@ export default function ReceiptReview({ receiptId }: ReceiptReviewProps) {
             key={JSON.stringify(extracted)}
             submitLabel="Save expense"
             initialValues={toFormValues(extracted)}
+            initialItems={items}
             onSubmit={handleSave}
           />
         </div>

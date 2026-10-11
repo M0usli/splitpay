@@ -13,7 +13,7 @@ from app.enums import Category
 from app.extraction.schemas import DEFAULT_CURRENCY, ExtractedFields
 from app.models import Expense, ExpenseShare, Receipt, User
 from app.schemas.expense import ExpenseCreate, ExpenseRead, ExpenseUpdate, ExpenseWrite
-from app.splitting import split_equally
+from app.splitting import ItemLine, split_by_items, split_equally
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
@@ -59,7 +59,7 @@ def differs_from_extraction(values: dict, receipt: Receipt) -> bool:
 
 # The sharing fields are not columns of the expense; they are handled by
 # work_out_shares and store_shares below.
-SHARING_FIELDS = {"is_shared", "shares"}
+SHARING_FIELDS = {"is_shared", "shares", "split_items"}
 
 
 def work_out_shares(db: Session, user: User, payload: ExpenseWrite) -> dict[int, Decimal] | None:
@@ -78,6 +78,9 @@ def work_out_shares(db: Session, user: User, payload: ExpenseWrite) -> dict[int,
         db.scalars(select(User.id).where(User.household_id == user.household_id).order_by(User.id))
     )
 
+    if payload.split_items is not None:
+        return shares_from_items(payload, member_ids, user.id)
+
     if payload.shares is None:
         # No parts given: split equally among everyone. The payer comes first,
         # so a cent that cannot be divided lands on the person who paid.
@@ -91,6 +94,34 @@ def work_out_shares(db: Session, user: User, payload: ExpenseWrite) -> dict[int,
             detail="Shares can only go to members of your household",
         )
     return parts
+
+
+def shares_from_items(
+    payload: ExpenseWrite, member_ids: list[int], payer_id: int
+) -> dict[int, Decimal]:
+    """Each person's part of an expense that is split item by item."""
+    lines = [
+        ItemLine(price=item.price, is_taxable=item.is_taxable, shared_by=item.shared_by)
+        for item in payload.split_items or []
+    ]
+    if any(not set(line.shared_by) <= set(member_ids) for line in lines):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Items can only be shared with members of your household",
+        )
+    try:
+        people = split_by_items(lines, payload.tax or Decimal("0"), payload.total, payer_id)
+    except ValueError as error:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
+    return {person: split.amount for person, split in people.items()}
+
+
+def split_items_to_store(payload: ExpenseWrite) -> list[dict] | None:
+    """The item choices to keep with the expense, or None when it has none."""
+    if not payload.is_shared or payload.split_items is None:
+        return None
+    # mode="json" turns the Decimal prices into strings so they fit in a JSON column.
+    return [item.model_dump(mode="json") for item in payload.split_items]
 
 
 def store_shares(
@@ -127,6 +158,7 @@ def create_expense(payload: ExpenseCreate, db: DbSession, user: CurrentUser) -> 
     expense = Expense(**values, was_edited=was_edited, user_id=user.id)
     db.add(expense)
     store_shares(db, user, expense, parts)
+    expense.split_items = split_items_to_store(payload)
     db.commit()
     db.refresh(expense)
     return expense
@@ -228,6 +260,7 @@ def update_expense(
     for field, value in new_values.items():
         setattr(expense, field, value)
     store_shares(db, user, expense, parts)
+    expense.split_items = split_items_to_store(payload)
     db.commit()
     db.refresh(expense)
     return expense

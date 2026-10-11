@@ -7,7 +7,7 @@
 import type { Share } from "./api";
 
 /** How the user chose to split an expense. */
-export type SplitMode = "equal" | "percent" | "amount";
+export type SplitMode = "equal" | "percent" | "amount" | "item";
 
 /** What the sharing inputs hold while the user is filling them in. */
 export type SharingValues = {
@@ -97,6 +97,10 @@ export function buildShares(
   if (!sharing.isShared) {
     return { ok: true, isShared: false, shares: null };
   }
+  if (sharing.mode === "item") {
+    // An item-by-item split is sent as items; the backend works out the parts.
+    return { ok: true, isShared: true, shares: null };
+  }
   const totalCents = toCents(total);
   if (totalCents === null) {
     return { ok: false, message: "Enter the total before choosing how to split it." };
@@ -142,9 +146,16 @@ export function buildShares(
 }
 
 /** The sharing inputs for an expense that is already saved. */
-export function sharingFromExpense(isShared: boolean, shares: Share[]): SharingValues {
+export function sharingFromExpense(
+  isShared: boolean,
+  shares: Share[],
+  wasSplitByItem = false,
+): SharingValues {
   if (!isShared) {
     return NOT_SHARED;
+  }
+  if (wasSplitByItem) {
+    return { isShared: true, mode: "item", included: [], inputs: {} };
   }
   // Saved parts are shown as exact amounts: that is what is stored, so
   // nothing changes unless the user changes it.

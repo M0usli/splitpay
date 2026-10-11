@@ -140,6 +140,7 @@ the AI extraction: receipts are saved and you can type the details by hand.
 | POST | `/household/leave` | Leave the household |
 | GET | `/household/expenses` | The household's shared expenses, with who paid and each person's part |
 | GET | `/household/balance` | Each member's position and the payments that settle it, `?currency=` |
+| POST | `/household/split-preview` | What each member would pay for a receipt split item by item (saves nothing) |
 | POST | `/household/settlements` | Record that the logged-in user paid a member back |
 | GET | `/household/settlements` | The household's recorded payments |
 | DELETE | `/household/settlements/{id}` | Undo a payment (only the person who recorded it) |
@@ -272,6 +273,12 @@ receipt-tracker/
   or equal split chosen on the form is turned into exact amounts with
   integer arithmetic (`frontend/src/lib/split.ts`), and the backend checks
   again that they add up to the total.
+- **A receipt can be split item by item.** Each line is ticked for the people
+  it is for and divided equally among them. Tax follows the taxed lines
+  only, in proportion, so someone who bought only untaxed food pays no tax.
+  The server works out the parts from the items; parts sent by the browser
+  are ignored. The page shows a live summary from the same server code
+  (`/household/split-preview`), so what you see is what gets saved.
 - **Paying someone back is not an expense.** A settlement only moves the
   balance, and only the person who paid can record or undo it.
 - **The balance is netted.** Each member's position is what they are owed

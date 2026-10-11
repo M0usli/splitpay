@@ -378,6 +378,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/household/split-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Item Split
+         * @description Work out an item-by-item split without saving anything.
+         *
+         *     The page calls this while the user ticks who each item is for, so the
+         *     arithmetic lives in one place (app/splitting.py) and what is shown is
+         *     exactly what saving the expense will store.
+         */
+        post: operations["preview_item_split_household_split_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/household/settlements": {
         parameters: {
             query?: never;
@@ -508,6 +532,8 @@ export interface components {
             is_shared: boolean;
             /** Shares */
             shares?: components["schemas"]["Share-Input"][] | null;
+            /** Split Items */
+            split_items?: components["schemas"]["SplitItem-Input"][] | null;
             /** Receipt Id */
             receipt_id?: number | null;
         };
@@ -552,6 +578,8 @@ export interface components {
             is_shared: boolean;
             /** Shares */
             shares: components["schemas"]["Share-Output"][];
+            /** Split Items */
+            split_items: components["schemas"]["SplitItem-Output"][] | null;
         };
         /**
          * ExpenseUpdate
@@ -586,6 +614,8 @@ export interface components {
             is_shared: boolean;
             /** Shares */
             shares?: components["schemas"]["Share-Input"][] | null;
+            /** Split Items */
+            split_items?: components["schemas"]["SplitItem-Input"][] | null;
         };
         /**
          * ExtractedFields
@@ -719,6 +749,21 @@ export interface components {
             amount: string;
         };
         /**
+         * PersonSplitRead
+         * @description What one member would pay, and what it is made of.
+         */
+        PersonSplitRead: {
+            member: components["schemas"]["MemberRead"];
+            /** Items */
+            items: string;
+            /** Tax */
+            tax: string;
+            /** Adjustment */
+            adjustment: string;
+            /** Amount */
+            amount: string;
+        };
+        /**
          * ReceiptRead
          * @description A receipt as returned by the API: raw OCR text plus the extracted fields.
          */
@@ -844,7 +889,65 @@ export interface components {
             is_shared: boolean;
             /** Shares */
             shares: components["schemas"]["Share-Output"][];
+            /** Split Items */
+            split_items: components["schemas"]["SplitItem-Output"][] | null;
             paid_by: components["schemas"]["MemberRead"];
+        };
+        /**
+         * SplitItem
+         * @description One line of a receipt and the household members who share it.
+         */
+        "SplitItem-Input": {
+            /** Name */
+            name: string;
+            /** Price */
+            price: number | string;
+            /**
+             * Is Taxable
+             * @default false
+             */
+            is_taxable: boolean;
+            /** Shared By */
+            shared_by: number[];
+        };
+        /**
+         * SplitItem
+         * @description One line of a receipt and the household members who share it.
+         */
+        "SplitItem-Output": {
+            /** Name */
+            name: string;
+            /** Price */
+            price: string;
+            /**
+             * Is Taxable
+             * @default false
+             */
+            is_taxable: boolean;
+            /** Shared By */
+            shared_by: number[];
+        };
+        /**
+         * SplitPreviewRead
+         * @description The result of an item-by-item split. The amounts add up to the total.
+         */
+        SplitPreviewRead: {
+            /** People */
+            people: components["schemas"]["PersonSplitRead"][];
+            /** Difference */
+            difference: string;
+        };
+        /**
+         * SplitPreviewRequest
+         * @description Request body for trying out an item-by-item split before saving it.
+         */
+        SplitPreviewRequest: {
+            /** Split Items */
+            split_items: components["schemas"]["SplitItem-Input"][];
+            /** Tax */
+            tax?: number | string | null;
+            /** Total */
+            total: number | string;
         };
         /**
          * StatsSummary
@@ -1623,6 +1726,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BalanceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_item_split_household_split_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SplitPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SplitPreviewRead"];
                 };
             };
             /** @description Validation Error */

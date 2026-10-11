@@ -6,6 +6,7 @@ test.
 """
 
 from collections.abc import Iterable
+from dataclasses import dataclass
 from decimal import ROUND_DOWN, Decimal
 
 from app.models import Expense, Settlement
@@ -92,3 +93,106 @@ def plan_payments(balances: dict[int, Decimal]) -> list[tuple[int, int, Decimal]
         if creditor[1] == 0:
             creditor_index += 1
     return payments
+
+
+def split_in_proportion(amount: Decimal, weights: list[Decimal]) -> list[Decimal]:
+    """Split an amount among people in proportion to their weights.
+
+    Everyone first gets their exact part rounded down to the cent. The cents
+    still missing go, one each, to the people who lost the largest fraction
+    of a cent to that rounding, so the parts add up to exactly the amount.
+
+    A negative amount (money to take off) is split the same way and negated.
+    Weights below zero count as zero. If every weight is zero the amount is
+    split equally.
+    """
+    if amount < 0:
+        return [-part for part in split_in_proportion(-amount, weights)]
+    weights = [max(weight, ZERO) for weight in weights]
+    total_weight = sum(weights)
+    if total_weight == 0:
+        return split_equally(amount, len(weights))
+
+    exact = [amount * weight / total_weight for weight in weights]
+    parts = [value.quantize(CENT, rounding=ROUND_DOWN) for value in exact]
+    missing_cents = int((amount - sum(parts)) / CENT)
+    # The biggest lost fraction first; the position breaks ties.
+    by_largest_loss = sorted(
+        range(len(parts)), key=lambda position: (parts[position] - exact[position], position)
+    )
+    for position in by_largest_loss[:missing_cents]:
+        parts[position] += CENT
+    return parts
+
+
+@dataclass
+class PersonSplit:
+    """What one person pays of a receipt split item by item."""
+
+    items: Decimal = ZERO
+    tax: Decimal = ZERO
+    # Their part of any difference between the items plus tax and the total.
+    adjustment: Decimal = ZERO
+
+    @property
+    def amount(self) -> Decimal:
+        return self.items + self.tax + self.adjustment
+
+
+@dataclass
+class ItemLine:
+    """One line of a receipt and the people who share it."""
+
+    price: Decimal
+    is_taxable: bool
+    shared_by: list[int]
+
+
+def split_by_items(
+    lines: list[ItemLine], tax: Decimal, total: Decimal, payer_id: int
+) -> dict[int, PersonSplit]:
+    """Work out what each person pays when a receipt is split item by item.
+
+    1. Each line's price is divided equally among the people who share it.
+    2. The tax is divided in proportion to each person's part of the taxed
+       lines, so someone who bought only untaxed food pays no tax. If no line
+       is marked as taxed, the tax follows everyone's part of all the lines.
+    3. Whatever is left between (items + tax) and the total, for example a
+       bag fee that is not a line, is spread in proportion to what each
+       person already pays.
+
+    The amounts always add up to exactly `total`. Raises ValueError if
+    someone would end up below zero, which can happen when a discount is
+    given to a person who shares nothing else.
+    """
+    people: dict[int, PersonSplit] = {}
+    taxed_parts: dict[int, Decimal] = {}
+
+    for line in lines:
+        # The payer first, so a cent that cannot be divided lands on them.
+        sharers = sorted(set(line.shared_by), key=lambda person: (person != payer_id, person))
+        sign = -1 if line.price < 0 else 1
+        for person, part in zip(sharers, split_equally(abs(line.price), len(sharers)), strict=True):
+            people.setdefault(person, PersonSplit()).items += sign * part
+            if line.is_taxable:
+                taxed_parts[person] = taxed_parts.get(person, ZERO) + sign * part
+
+    order = sorted(people, key=lambda person: (person != payer_id, person))
+    if not order:
+        raise ValueError("there are no items to split")
+
+    any_taxed = any(line.is_taxable for line in lines)
+    tax_weights = [taxed_parts.get(p, ZERO) if any_taxed else people[p].items for p in order]
+    for person, part in zip(order, split_in_proportion(tax, tax_weights), strict=True):
+        people[person].tax = part
+
+    difference = total - sum(people[p].items + people[p].tax for p in order)
+    so_far = [people[p].items + people[p].tax for p in order]
+    for person, part in zip(order, split_in_proportion(difference, so_far), strict=True):
+        people[person].adjustment = part
+
+    if any(split.amount < 0 for split in people.values()):
+        raise ValueError(
+            "someone would pay less than nothing; check who the discounts are assigned to"
+        )
+    return people

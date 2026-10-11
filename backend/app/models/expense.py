@@ -1,7 +1,9 @@
 import datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.enums import Category
@@ -33,6 +35,10 @@ class Expense(Base):
     shared_household_id: Mapped[int | None] = mapped_column(
         ForeignKey("households.id", ondelete="SET NULL"), index=True
     )
+    # When the expense was split item by item: the lines and who each one is
+    # for, kept so the split can be opened and changed later. The amounts
+    # that count are still the shares below; this is how they were reached.
+    split_items: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
     # True if the user corrected any field the AI extracted.
     was_edited: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime.datetime] = mapped_column(
