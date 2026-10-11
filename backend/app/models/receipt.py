@@ -1,7 +1,7 @@
 import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -15,6 +15,9 @@ class Receipt(Base):
     __tablename__ = "receipts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Who this receipt belongs to. Every query filters on it, so one user can
+    # never see another user's rows.
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     file_path: Mapped[str] = mapped_column(String(500))
     raw_text: Mapped[str | None] = mapped_column(Text)
     # What the AI model extracted, stored as JSON. Keeping the original answer

@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
+from app.auth import SESSION_COOKIE
 from app.database import get_db
 from app.main import app
 from app.ocr import OcrError
@@ -23,7 +24,10 @@ def client_without_database() -> Generator[TestClient, None, None]:
         yield  # never reached; it makes this function a generator, like get_db
 
     app.dependency_overrides[get_db] = broken_get_db
-    yield TestClient(app)
+    client = TestClient(app)
+    # Any cookie will do: checking it is what makes the app reach for the database.
+    client.cookies.set(SESSION_COOKIE, "any-token")
+    yield client
     app.dependency_overrides.clear()
 
 

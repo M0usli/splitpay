@@ -1,5 +1,6 @@
 import datetime
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -9,6 +10,12 @@ from app.models import User, UserSession
 
 EMAIL = "sam@example.com"
 PASSWORD = "correct horse battery"
+
+
+@pytest.fixture
+def client(anonymous_client: TestClient) -> TestClient:
+    """In this file the client starts logged out, so the tests can log in themselves."""
+    return anonymous_client
 
 
 def register(client: TestClient, email: str = EMAIL, password: str = PASSWORD):

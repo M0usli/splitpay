@@ -135,6 +135,9 @@ the AI extraction: receipts are saved and you can type the details by hand.
 | POST | `/auth/logout` | End the current session |
 | GET | `/auth/me` | The logged-in user, or 401 |
 
+Every `/receipts`, `/expenses` and `/stats` endpoint needs a login and works
+only on the logged-in user's own rows.
+
 The frontend's TypeScript types are generated from the backend's OpenAPI
 schema (`npm run generate:api`), so the two sides cannot drift apart silently.
 
@@ -245,6 +248,10 @@ receipt-tracker/
   frontend asks `GET /auth/me` who is signed in and shares the answer through
   a React context. Sending signed-out visitors to the log-in page is done in
   the browser for convenience only; the backend is what enforces access.
+- **Each user sees only their own data.** Receipts and expenses carry a
+  `user_id` taken from the login session, never from the request, and every
+  query filters on it. Asking for someone else's row gives the same 404 as a
+  row that does not exist.
 - **Secrets stay out of the repository.** The API key and model name come
   from environment variables; `.env` is gitignored.
 

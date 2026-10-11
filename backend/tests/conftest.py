@@ -6,6 +6,7 @@ fakes, so no test runs real OCR through the API or makes a paid API call.
 Uploads go to a temporary folder.
 """
 
+import datetime
 from collections.abc import Generator
 from pathlib import Path
 
@@ -17,11 +18,12 @@ from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
+from app.auth import SESSION_COOKIE, hash_token
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.extraction import get_llm_client
 from app.main import app
-from app.models import Base
+from app.models import Base, User, UserSession
 from app.ocr import get_ocr_engine
 
 MAIN_DATABASE_URL = make_url(get_settings().database_url)
@@ -115,13 +117,13 @@ def test_settings(tmp_path: Path) -> Settings:
 
 
 @pytest.fixture
-def client(
+def anonymous_client(
     db_session: Session,
     fake_ocr: FakeOcrEngine,
     fake_llm: FakeLlmClient,
     test_settings: Settings,
 ) -> Generator[TestClient, None, None]:
-    """An API client wired to the test database, fake OCR, fake LLM and temp uploads."""
+    """An API client that is not logged in, wired to the test database and the fakes."""
 
     def override_get_db() -> Generator[Session, None, None]:
         yield db_session
@@ -132,3 +134,41 @@ def client(
     app.dependency_overrides[get_settings] = lambda: test_settings
     yield TestClient(app)
     app.dependency_overrides.clear()
+
+
+def log_in_as(client: TestClient, db_session: Session, email: str) -> User:
+    """Create a user with a session and give the client its cookie.
+
+    The rows are written directly, which skips the slow password hashing.
+    The real register and login endpoints are tested in test_auth.py.
+    """
+    user = User(email=email, password_hash="not-a-real-hash")
+    db_session.add(user)
+    db_session.commit()
+
+    token = f"token-for-{email}"
+    db_session.add(
+        UserSession(
+            user_id=user.id,
+            token_hash=hash_token(token),
+            expires_at=datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1),
+        )
+    )
+    db_session.commit()
+    client.cookies.set(SESSION_COOKIE, token)
+    return user
+
+
+@pytest.fixture
+def client(anonymous_client: TestClient, db_session: Session) -> TestClient:
+    """The API client most tests use: logged in as sam@example.com."""
+    log_in_as(anonymous_client, db_session, "sam@example.com")
+    return anonymous_client
+
+
+@pytest.fixture
+def other_client(client: TestClient, db_session: Session) -> TestClient:
+    """A second API client, logged in as a different user."""
+    other = TestClient(app)
+    log_in_as(other, db_session, "alex@example.com")
+    return other

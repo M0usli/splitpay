@@ -1,7 +1,8 @@
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import Receipt
+from app.models import Receipt, User
 
 
 def expense_payload(**overrides) -> dict:
@@ -21,8 +22,10 @@ def expense_payload(**overrides) -> dict:
 
 
 def create_receipt(db_session: Session) -> Receipt:
-    """A receipt whose AI-extracted fields match expense_payload()."""
+    """A receipt of the logged-in user whose AI-extracted fields match expense_payload()."""
     receipt = Receipt(
+        # The `client` fixture creates the logged-in user first, so it has the lowest id.
+        user_id=db_session.scalar(select(func.min(User.id))),
         file_path="test.jpg",
         extracted_fields={
             "merchant": "Loblaws",
