@@ -1,51 +1,83 @@
-"""The arithmetic for splitting shared expenses between two people.
+"""The arithmetic for splitting shared expenses among a household.
 
 Everything here uses Decimal, and every amount is a whole number of cents.
+These are plain functions with no database or web code, so they are easy to
+test.
 """
 
 from collections.abc import Iterable
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_DOWN, Decimal
 
 from app.models import Expense
 
 CENT = Decimal("0.01")
+ZERO = Decimal("0.00")
 
 
-def split_total(
-    total: Decimal, payer_share_percent: Decimal, other_share_amount: Decimal | None = None
-) -> tuple[Decimal, Decimal]:
-    """Split a total into (the payer's part, the other person's part).
+def split_equally(total: Decimal, people: int) -> list[Decimal]:
+    """Split a total into equal parts that add up to exactly the total.
 
-    A fixed `other_share_amount` wins over the percent: the other person owes
-    exactly that, and the payer covers the rest.
-
-    With a percent, only the payer's part is rounded. The other part is
-    whatever is left, so the two always add up to exactly the total and no
-    cent is lost or invented. For example 10.01 at 50% gives 5.01 and 5.00.
+    10.00 among 3 people cannot be 3.333... each. Everyone gets the amount
+    rounded down to the cent (3.33), and the cents left over (here one) go to
+    the first people in the list, one cent each: [3.34, 3.33, 3.33].
     """
-    if other_share_amount is not None:
-        return total - other_share_amount, other_share_amount
-
-    # ROUND_HALF_UP is the rounding taught at school: 0.005 becomes 0.01.
-    # Python's default rounds halves to the nearest even digit instead.
-    payer_part = (total * payer_share_percent / 100).quantize(CENT, rounding=ROUND_HALF_UP)
-    return payer_part, total - payer_part
+    base = (total / people).quantize(CENT, rounding=ROUND_DOWN)
+    leftover_cents = int((total - base * people) / CENT)
+    return [base + CENT if position < leftover_cents else base for position in range(people)]
 
 
-def amount_owed_to(payer_id: int, shared_expenses: Iterable[Expense]) -> Decimal:
-    """How much the other member owes `payer_id` once both sides are counted.
+def net_balances(member_ids: Iterable[int], expenses: Iterable[Expense]) -> dict[int, Decimal]:
+    """For each member: what they are owed minus what they owe.
 
-    Each shared expense puts the other person's part on the payer's side. A
-    positive result means the other member owes `payer_id`; a negative one
-    means `payer_id` owes them.
+    Positive means the household owes this person money; negative means this
+    person owes money. For every share that is not the payer's own, the payer
+    goes up by that amount and the share's owner goes down by it, so the
+    numbers always add up to zero.
+
+    Shares of people who are no longer members are left out.
     """
-    balance = Decimal("0.00")
-    for expense in shared_expenses:
-        _, other_part = split_total(
-            expense.total, expense.payer_share_percent, expense.other_share_amount
-        )
-        if expense.user_id == payer_id:
-            balance += other_part
-        else:
-            balance -= other_part
-    return balance
+    balances = {member_id: ZERO for member_id in member_ids}
+    for expense in expenses:
+        payer_id = expense.user_id
+        if payer_id not in balances:
+            continue
+        for share in expense.shares:
+            if share.user_id == payer_id or share.user_id not in balances:
+                continue
+            balances[payer_id] += share.amount
+            balances[share.user_id] -= share.amount
+    return balances
+
+
+def plan_payments(balances: dict[int, Decimal]) -> list[tuple[int, int, Decimal]]:
+    """Turn net balances into a short list of (from, to, amount) payments.
+
+    Who paid for what no longer matters once everything is netted: only how
+    much each person is up or down. The person who owes the most pays the
+    person who is owed the most, as much as possible, and this repeats until
+    everyone is at zero. With N people this needs at most N - 1 payments.
+    """
+    # Largest amounts first; the id breaks ties so the result is always the same.
+    debtors = sorted(
+        ([member_id, -amount] for member_id, amount in balances.items() if amount < 0),
+        key=lambda entry: (-entry[1], entry[0]),
+    )
+    creditors = sorted(
+        ([member_id, amount] for member_id, amount in balances.items() if amount > 0),
+        key=lambda entry: (-entry[1], entry[0]),
+    )
+
+    payments = []
+    debtor_index = creditor_index = 0
+    while debtor_index < len(debtors) and creditor_index < len(creditors):
+        debtor, creditor = debtors[debtor_index], creditors[creditor_index]
+        amount = min(debtor[1], creditor[1])
+        payments.append((debtor[0], creditor[0], amount))
+        debtor[1] -= amount
+        creditor[1] -= amount
+        # Whoever reached zero is done; move on to the next person.
+        if debtor[1] == 0:
+            debtor_index += 1
+        if creditor[1] == 0:
+            creditor_index += 1
+    return payments

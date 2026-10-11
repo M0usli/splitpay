@@ -1,8 +1,8 @@
 """add households and shared expenses
 
-Revision ID: a42d3a65f2df
+Revision ID: f7e3479c9d3c
 Revises: 296cf4947ce3
-Create Date: 2026-10-11 09:29:14.467957
+Create Date: 2026-10-11 09:56:57.709015
 
 """
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "a42d3a65f2df"
+revision: str = "f7e3479c9d3c"
 down_revision: str | Sequence[str] | None = "296cf4947ce3"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -36,18 +36,32 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_households_invite_code"), "households", ["invite_code"], unique=True)
-    op.add_column(
-        "expenses",
-        sa.Column("is_shared", sa.Boolean(), server_default=sa.text("false"), nullable=False),
+    op.create_table(
+        "expense_shares",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("expense_id", sa.Integer(), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("amount", sa.Numeric(precision=10, scale=2), nullable=False),
+        sa.ForeignKeyConstraint(["expense_id"], ["expenses.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("expense_id", "user_id"),
     )
-    op.add_column(
+    op.create_index(
+        op.f("ix_expense_shares_expense_id"), "expense_shares", ["expense_id"], unique=False
+    )
+    op.create_index(op.f("ix_expense_shares_user_id"), "expense_shares", ["user_id"], unique=False)
+    op.add_column("expenses", sa.Column("shared_household_id", sa.Integer(), nullable=True))
+    op.create_index(
+        op.f("ix_expenses_shared_household_id"), "expenses", ["shared_household_id"], unique=False
+    )
+    op.create_foreign_key(
+        "expenses_shared_household_id_fkey",
         "expenses",
-        sa.Column(
-            "payer_share_percent",
-            sa.Numeric(precision=5, scale=2),
-            server_default="50",
-            nullable=False,
-        ),
+        "households",
+        ["shared_household_id"],
+        ["id"],
+        ondelete="SET NULL",
     )
     op.add_column("users", sa.Column("household_id", sa.Integer(), nullable=True))
     op.create_index(op.f("ix_users_household_id"), "users", ["household_id"], unique=False)
@@ -68,8 +82,12 @@ def downgrade() -> None:
     op.drop_constraint("users_household_id_fkey", "users", type_="foreignkey")
     op.drop_index(op.f("ix_users_household_id"), table_name="users")
     op.drop_column("users", "household_id")
-    op.drop_column("expenses", "payer_share_percent")
-    op.drop_column("expenses", "is_shared")
+    op.drop_constraint("expenses_shared_household_id_fkey", "expenses", type_="foreignkey")
+    op.drop_index(op.f("ix_expenses_shared_household_id"), table_name="expenses")
+    op.drop_column("expenses", "shared_household_id")
+    op.drop_index(op.f("ix_expense_shares_user_id"), table_name="expense_shares")
+    op.drop_index(op.f("ix_expense_shares_expense_id"), table_name="expense_shares")
+    op.drop_table("expense_shares")
     op.drop_index(op.f("ix_households_invite_code"), table_name="households")
     op.drop_table("households")
     # ### end Alembic commands ###

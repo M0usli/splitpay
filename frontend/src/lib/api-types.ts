@@ -324,6 +324,9 @@ export interface paths {
         /**
          * Leave Household
          * @description Leave the household. Its last member leaving deletes it.
+         *
+         *     The balance only counts current members, so anything this user owed or
+         *     was owed stops being counted.
          */
         post: operations["leave_household_household_leave_post"];
         delete?: never;
@@ -341,7 +344,7 @@ export interface paths {
         };
         /**
          * List Shared Expenses
-         * @description The shared expenses of both members. Unshared expenses stay private.
+         * @description The household's shared expenses. Private expenses are never included.
          */
         get: operations["list_shared_expenses_household_expenses_get"];
         put?: never;
@@ -361,7 +364,7 @@ export interface paths {
         };
         /**
          * Get Balance
-         * @description Who owes whom, counting every shared expense in one currency.
+         * @description Each member's position and the payments that would settle the household.
          *
          *     Amounts in different currencies cannot be added together, so the balance
          *     covers one currency at a time (like the Dashboard summary).
@@ -381,19 +384,20 @@ export interface components {
     schemas: {
         /**
          * BalanceRead
-         * @description Who owes whom after counting every shared expense in one currency.
+         * @description Where the household stands after counting every shared expense in one currency.
          *
-         *     When nobody owes anything, `amount` is "0.00" and both people are null.
+         *     `payments` is the shortest list of payments that brings everyone to zero.
+         *     It is empty when nobody owes anything.
          */
         BalanceRead: {
             /** Currency */
             currency: string;
-            /** Amount */
-            amount: string;
-            owed_by: components["schemas"]["MemberRead"] | null;
-            owed_to: components["schemas"]["MemberRead"] | null;
             /** Shared Expense Count */
             shared_expense_count: number;
+            /** Members */
+            members: components["schemas"]["MemberBalance"][];
+            /** Payments */
+            payments: components["schemas"]["Payment"][];
         };
         /** Body_upload_receipt_receipts_post */
         Body_upload_receipt_receipts_post: {
@@ -458,13 +462,8 @@ export interface components {
              * @default false
              */
             is_shared: boolean;
-            /**
-             * Payer Share Percent
-             * @default 50
-             */
-            payer_share_percent: number | string;
-            /** Other Share Amount */
-            other_share_amount?: number | string | null;
+            /** Shares */
+            shares?: components["schemas"]["Share-Input"][] | null;
             /** Receipt Id */
             receipt_id?: number | null;
         };
@@ -494,18 +493,6 @@ export interface components {
             category: components["schemas"]["Category"];
             /** Notes */
             notes?: string | null;
-            /**
-             * Is Shared
-             * @default false
-             */
-            is_shared: boolean;
-            /**
-             * Payer Share Percent
-             * @default 50
-             */
-            payer_share_percent: string;
-            /** Other Share Amount */
-            other_share_amount?: string | null;
             /** Id */
             id: number;
             /** Receipt Id */
@@ -517,6 +504,10 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Is Shared */
+            is_shared: boolean;
+            /** Shares */
+            shares: components["schemas"]["Share-Output"][];
         };
         /**
          * ExpenseUpdate
@@ -549,13 +540,8 @@ export interface components {
              * @default false
              */
             is_shared: boolean;
-            /**
-             * Payer Share Percent
-             * @default 50
-             */
-            payer_share_percent: number | string;
-            /** Other Share Amount */
-            other_share_amount?: number | string | null;
+            /** Shares */
+            shares?: components["schemas"]["Share-Input"][] | null;
         };
         /**
          * ExtractedFields
@@ -628,8 +614,17 @@ export interface components {
             members: components["schemas"]["MemberRead"][];
         };
         /**
+         * MemberBalance
+         * @description One member's position: positive is owed money, negative owes money.
+         */
+        MemberBalance: {
+            member: components["schemas"]["MemberRead"];
+            /** Net */
+            net: string;
+        };
+        /**
          * MemberRead
-         * @description A household member. Only what the other member needs to see.
+         * @description A household member. Only what the other members need to see.
          */
         MemberRead: {
             /** Id */
@@ -652,6 +647,16 @@ export interface components {
             month: string;
             /** Total */
             total: string;
+        };
+        /**
+         * Payment
+         * @description A payment that would help settle the household: `owed_by` pays `owed_to`.
+         */
+        Payment: {
+            owed_by: components["schemas"]["MemberRead"];
+            owed_to: components["schemas"]["MemberRead"];
+            /** Amount */
+            amount: string;
         };
         /**
          * ReceiptRead
@@ -685,8 +690,28 @@ export interface components {
          */
         ReceiptStatus: "pending" | "extracted" | "failed";
         /**
+         * Share
+         * @description One person's part of a shared expense.
+         */
+        "Share-Input": {
+            /** User Id */
+            user_id: number;
+            /** Amount */
+            amount: number | string;
+        };
+        /**
+         * Share
+         * @description One person's part of a shared expense.
+         */
+        "Share-Output": {
+            /** User Id */
+            user_id: number;
+            /** Amount */
+            amount: string;
+        };
+        /**
          * SharedExpenseRead
-         * @description A shared expense, with who paid it and how the total is split.
+         * @description A shared expense as the whole household sees it, with who paid.
          */
         SharedExpenseRead: {
             /** Merchant */
@@ -710,18 +735,6 @@ export interface components {
             category: components["schemas"]["Category"];
             /** Notes */
             notes?: string | null;
-            /**
-             * Is Shared
-             * @default false
-             */
-            is_shared: boolean;
-            /**
-             * Payer Share Percent
-             * @default 50
-             */
-            payer_share_percent: string;
-            /** Other Share Amount */
-            other_share_amount?: string | null;
             /** Id */
             id: number;
             /** Receipt Id */
@@ -733,11 +746,11 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Is Shared */
+            is_shared: boolean;
+            /** Shares */
+            shares: components["schemas"]["Share-Output"][];
             paid_by: components["schemas"]["MemberRead"];
-            /** Payer Part */
-            payer_part: string;
-            /** Other Part */
-            other_part: string;
         };
         /**
          * StatsSummary

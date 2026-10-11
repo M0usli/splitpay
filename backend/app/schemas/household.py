@@ -17,7 +17,7 @@ class HouseholdJoin(BaseModel):
 
 
 class MemberRead(BaseModel):
-    """A household member. Only what the other member needs to see."""
+    """A household member. Only what the other members need to see."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -35,21 +35,34 @@ class HouseholdRead(BaseModel):
 
 
 class SharedExpenseRead(ExpenseRead):
-    """A shared expense, with who paid it and how the total is split."""
+    """A shared expense as the whole household sees it, with who paid."""
 
     paid_by: MemberRead
-    payer_part: Amount
-    other_part: Amount
+
+
+class MemberBalance(BaseModel):
+    """One member's position: positive is owed money, negative owes money."""
+
+    member: MemberRead
+    net: Amount
+
+
+class Payment(BaseModel):
+    """A payment that would help settle the household: `owed_by` pays `owed_to`."""
+
+    owed_by: MemberRead
+    owed_to: MemberRead
+    amount: Amount
 
 
 class BalanceRead(BaseModel):
-    """Who owes whom after counting every shared expense in one currency.
+    """Where the household stands after counting every shared expense in one currency.
 
-    When nobody owes anything, `amount` is "0.00" and both people are null.
+    `payments` is the shortest list of payments that brings everyone to zero.
+    It is empty when nobody owes anything.
     """
 
     currency: str
-    amount: Amount
-    owed_by: MemberRead | None
-    owed_to: MemberRead | None
     shared_expense_count: int
+    members: list[MemberBalance]
+    payments: list[Payment]

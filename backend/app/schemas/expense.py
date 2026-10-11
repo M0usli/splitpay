@@ -10,8 +10,14 @@ from app.enums import Category
 # JSON (e.g. "12.50") so it never passes through a float.
 Money = Annotated[Decimal, Field(ge=0, max_digits=10, decimal_places=2)]
 
-# A share between 0 and 100, sent as a string like "50" or "33.33".
-Percent = Annotated[Decimal, Field(ge=0, le=100, max_digits=5, decimal_places=2)]
+
+class Share(BaseModel):
+    """One person's part of a shared expense."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    user_id: int
+    amount: Money
 
 
 class ExpenseBase(BaseModel):
@@ -25,22 +31,30 @@ class ExpenseBase(BaseModel):
     currency: str = Field(default="CAD", pattern="^[A-Z]{3}$")
     category: Category
     notes: str | None = None
-    # Split this expense with the other member of the user's household.
+
+
+class ExpenseWrite(ExpenseBase):
+    """Fields for creating or changing an expense, including how it is shared."""
+
+    # Share this expense with the user's household.
     is_shared: bool = False
-    # The percent of the total that the person who paid covers themselves.
-    payer_share_percent: Percent = Decimal("50")
-    # Or a fixed amount the other person owes. When set, it replaces the percent.
-    other_share_amount: Money | None = None
+    # Each person's part. Leave it out to split the total equally among all
+    # members of the household. The parts must add up to the total.
+    shares: list[Share] | None = None
 
     @model_validator(mode="after")
-    def other_share_fits_in_total(self) -> Self:
-        """Nobody can owe more than the whole expense."""
-        if self.other_share_amount is not None and self.other_share_amount > self.total:
-            raise ValueError("other_share_amount cannot be more than the total")
+    def shares_add_up_to_the_total(self) -> Self:
+        if not self.is_shared or self.shares is None:
+            return self
+        user_ids = [share.user_id for share in self.shares]
+        if len(user_ids) != len(set(user_ids)):
+            raise ValueError("each person can have only one share")
+        if sum(share.amount for share in self.shares) != self.total:
+            raise ValueError("the shares must add up to the total")
         return self
 
 
-class ExpenseCreate(ExpenseBase):
+class ExpenseCreate(ExpenseWrite):
     """Request body for creating an expense.
 
     `was_edited` is not accepted here: the server works it out by comparing
@@ -50,7 +64,7 @@ class ExpenseCreate(ExpenseBase):
     receipt_id: int | None = None
 
 
-class ExpenseUpdate(ExpenseBase):
+class ExpenseUpdate(ExpenseWrite):
     """Request body for replacing an expense's editable fields."""
 
 
@@ -64,3 +78,6 @@ class ExpenseRead(ExpenseBase):
     receipt_id: int | None
     was_edited: bool
     created_at: datetime.datetime
+    is_shared: bool
+    # Empty for a private expense.
+    shares: list[Share]

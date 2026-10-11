@@ -1,5 +1,4 @@
 import secrets
-from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -16,14 +15,18 @@ from app.schemas.household import (
     HouseholdCreate,
     HouseholdJoin,
     HouseholdRead,
+    MemberBalance,
     MemberRead,
+    Payment,
     SharedExpenseRead,
 )
-from app.splitting import amount_owed_to, split_total
+from app.splitting import net_balances, plan_payments
 
 router = APIRouter(prefix="/household", tags=["household"])
 
-MAX_MEMBERS = 2
+# A household can be any realistic size. The limit only stops a leaked invite
+# code from letting an endless number of accounts join.
+MAX_MEMBERS = 20
 
 # Letters and digits that are hard to mix up when read aloud or typed:
 # no 0/O and no 1/I/L.
@@ -85,8 +88,8 @@ def join_household(payload: HouseholdJoin, db: DbSession, user: CurrentUser) -> 
     """Join the household that has this invite code."""
     require_no_household(user)
     # with_for_update locks the household row until this request commits. If
-    # two people join at the same moment, the second waits and then sees the
-    # household is full, instead of both getting in.
+    # two people join at the same moment, the second waits and then counts
+    # the members correctly, so the limit cannot be passed.
     household = db.scalar(
         select(Household)
         .where(Household.invite_code == payload.invite_code.strip().upper())
@@ -104,7 +107,11 @@ def join_household(payload: HouseholdJoin, db: DbSession, user: CurrentUser) -> 
 
 @router.post("/leave", status_code=status.HTTP_204_NO_CONTENT)
 def leave_household(db: DbSession, user: CurrentUser) -> None:
-    """Leave the household. Its last member leaving deletes it."""
+    """Leave the household. Its last member leaving deletes it.
+
+    The balance only counts current members, so anything this user owed or
+    was owed stops being counted.
+    """
     household = get_household_or_404(db, user)
     user.household_id = None
     db.flush()
@@ -113,11 +120,11 @@ def leave_household(db: DbSession, user: CurrentUser) -> None:
     db.commit()
 
 
-def find_shared_expenses(db: Session, members: list[User], currency: str | None) -> list[Expense]:
-    """Every expense the members marked as shared, newest first."""
+def find_shared_expenses(db: Session, household: Household, currency: str | None) -> list[Expense]:
+    """Every expense shared with the household, newest first."""
     query = (
         select(Expense)
-        .where(Expense.is_shared, Expense.user_id.in_([member.id for member in members]))
+        .where(Expense.shared_household_id == household.id)
         .order_by(Expense.date.desc(), Expense.id.desc())
     )
     if currency is not None:
@@ -127,26 +134,20 @@ def find_shared_expenses(db: Session, members: list[User], currency: str | None)
 
 @router.get("/expenses", response_model=list[SharedExpenseRead])
 def list_shared_expenses(db: DbSession, user: CurrentUser) -> list[SharedExpenseRead]:
-    """The shared expenses of both members. Unshared expenses stay private."""
+    """The household's shared expenses. Private expenses are never included."""
     household = get_household_or_404(db, user)
-    members = get_members(db, household.id)
-    members_by_id = {member.id: member for member in members}
+    members_by_id = {member.id: member for member in get_members(db, household.id)}
 
-    result = []
-    for expense in find_shared_expenses(db, members, currency=None):
-        payer_part, other_part = split_total(
-            expense.total, expense.payer_share_percent, expense.other_share_amount
+    return [
+        SharedExpenseRead(
+            # The usual expense fields, plus who paid.
+            **ExpenseRead.model_validate(expense).model_dump(),
+            paid_by=MemberRead.model_validate(members_by_id[expense.user_id]),
         )
-        result.append(
-            SharedExpenseRead(
-                # The usual expense fields, plus the three about the split.
-                **ExpenseRead.model_validate(expense).model_dump(),
-                paid_by=MemberRead.model_validate(members_by_id[expense.user_id]),
-                payer_part=payer_part,
-                other_part=other_part,
-            )
-        )
-    return result
+        for expense in find_shared_expenses(db, household, currency=None)
+        # Skip expenses paid by someone who has since left the household.
+        if expense.user_id in members_by_id
+    ]
 
 
 @router.get("/balance", response_model=BalanceRead)
@@ -155,36 +156,26 @@ def get_balance(
     user: CurrentUser,
     currency: Annotated[str, Query(pattern="^[A-Z]{3}$")] = DEFAULT_CURRENCY,
 ) -> BalanceRead:
-    """Who owes whom, counting every shared expense in one currency.
+    """Each member's position and the payments that would settle the household.
 
     Amounts in different currencies cannot be added together, so the balance
     covers one currency at a time (like the Dashboard summary).
     """
     household = get_household_or_404(db, user)
-    members = get_members(db, household.id)
-    expenses = find_shared_expenses(db, members, currency)
+    members = {
+        member.id: MemberRead.model_validate(member) for member in get_members(db, household.id)
+    }
+    expenses = find_shared_expenses(db, household, currency)
+    balances = net_balances(members, expenses)
 
-    settled = BalanceRead(
+    return BalanceRead(
         currency=currency,
-        amount=Decimal("0"),
-        owed_by=None,
-        owed_to=None,
         shared_expense_count=len(expenses),
-    )
-    # Alone in the household there is nobody to owe yet.
-    if len(members) < MAX_MEMBERS:
-        return settled
-
-    first, second = members
-    owed_to_first = amount_owed_to(first.id, expenses)
-    if owed_to_first == 0:
-        return settled
-
-    owed_to, owed_by = (first, second) if owed_to_first > 0 else (second, first)
-    return settled.model_copy(
-        update={
-            "amount": abs(owed_to_first),
-            "owed_by": MemberRead.model_validate(owed_by),
-            "owed_to": MemberRead.model_validate(owed_to),
-        }
+        members=[
+            MemberBalance(member=members[member_id], net=net) for member_id, net in balances.items()
+        ],
+        payments=[
+            Payment(owed_by=members[owed_by], owed_to=members[owed_to], amount=amount)
+            for owed_by, owed_to, amount in plan_payments(balances)
+        ],
     )

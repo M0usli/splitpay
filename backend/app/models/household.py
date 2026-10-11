@@ -7,7 +7,7 @@ from app.models.base import Base
 
 
 class Household(Base):
-    """Two people who share some costs, for example roommates.
+    """People who share some costs, for example roommates.
 
     Members are the users whose `household_id` points at this row.
     """

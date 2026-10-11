@@ -26,7 +26,7 @@ const EXPENSES: Expense[] = [
     notes: null,
     was_edited: false,
     is_shared: false,
-    payer_share_percent: "50.00",
+    shares: [],
     created_at: "2026-10-08T14:32:07Z",
   },
   {
@@ -42,7 +42,7 @@ const EXPENSES: Expense[] = [
     notes: null,
     was_edited: false,
     is_shared: false,
-    payer_share_percent: "50.00",
+    shares: [],
     created_at: "2026-10-03T08:14:00Z",
   },
 ];

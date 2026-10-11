@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 
-import { CATEGORIES, type Category, type ExpenseUpdate } from "@/lib/api";
+import { CATEGORIES, type Category, type ExpenseUpdate, type Share } from "@/lib/api";
 
 // What the inputs hold while the user is typing. Inputs always produce
 // strings, so amounts stay strings here and the API parses them as decimals.
@@ -15,12 +15,11 @@ export type ExpenseFormValues = {
   currency: string;
   category: Category | "";
   notes: string;
-  // How the expense is split with a roommate. The form has no inputs for
-  // these yet; it keeps what it was given so that editing an expense does
-  // not undo its sharing.
+  // How the expense is shared with the household. The form has no inputs
+  // for these yet; it keeps what it was given so that editing an expense
+  // does not undo its sharing. null shares mean "split equally".
   is_shared: boolean;
-  payer_share_percent: string;
-  other_share_amount: string | null;
+  shares: Share[] | null;
 };
 
 const EMPTY_VALUES: ExpenseFormValues = {
@@ -33,8 +32,7 @@ const EMPTY_VALUES: ExpenseFormValues = {
   category: "",
   notes: "",
   is_shared: false,
-  payer_share_percent: "50",
-  other_share_amount: null,
+  shares: null,
 };
 
 type ExpenseFormProps = {
@@ -93,8 +91,9 @@ export default function ExpenseForm({
         category: values.category,
         notes: emptyToNull(values.notes),
         is_shared: values.is_shared,
-        payer_share_percent: values.payer_share_percent,
-        other_share_amount: values.other_share_amount,
+        // The saved parts only fit the saved total. If the total was
+        // changed, let the backend split the new one equally.
+        shares: values.total === initialValues?.total ? values.shares : null,
       });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Something went wrong");

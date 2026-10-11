@@ -13,6 +13,8 @@ export type Category = Schemas["Category"];
 export type Expense = Schemas["ExpenseRead"];
 export type ExpenseCreate = Schemas["ExpenseCreate"];
 export type ExpenseUpdate = Schemas["ExpenseUpdate"];
+// One person's part of a shared expense, as the API returns it.
+export type Share = Schemas["Share-Output"];
 export type Receipt = Schemas["ReceiptRead"];
 export type ExtractedFields = Schemas["ExtractedFields"];
 export type StatsSummary = Schemas["StatsSummary"];
