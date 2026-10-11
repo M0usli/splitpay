@@ -5,11 +5,12 @@ from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth import CurrentUser
 from app.database import DbSession
 from app.dates import MonthQuery, month_range
 from app.enums import Category
 from app.extraction.schemas import DEFAULT_CURRENCY, ExtractedFields
-from app.models import Expense, Receipt
+from app.models import Expense, Receipt, User
 from app.schemas.expense import ExpenseCreate, ExpenseRead, ExpenseUpdate
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
@@ -32,9 +33,14 @@ CSV_COLUMNS = (
 )
 
 
-def get_expense_or_404(db: Session, expense_id: int) -> Expense:
+def get_expense_or_404(db: Session, user: User, expense_id: int) -> Expense:
+    """Find one of the user's own expenses.
+
+    Someone else's expense gives the same 404 as one that does not exist, so
+    the answer never reveals which ids are in use.
+    """
     expense = db.get(Expense, expense_id)
-    if expense is None:
+    if expense is None or expense.user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Expense not found")
     return expense
 
@@ -50,25 +56,32 @@ def differs_from_extraction(values: dict, receipt: Receipt) -> bool:
 
 
 @router.post("", response_model=ExpenseRead, status_code=status.HTTP_201_CREATED)
-def create_expense(payload: ExpenseCreate, db: DbSession) -> Expense:
+def create_expense(payload: ExpenseCreate, db: DbSession, user: CurrentUser) -> Expense:
     values = payload.model_dump()
     was_edited = False
     if payload.receipt_id is not None:
         receipt = db.get(Receipt, payload.receipt_id)
-        if receipt is None:
+        if receipt is None or receipt.user_id != user.id:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Receipt not found")
         was_edited = differs_from_extraction(values, receipt)
 
-    expense = Expense(**values, was_edited=was_edited)
+    # The owner comes from the login session, never from the request body.
+    expense = Expense(**values, was_edited=was_edited, user_id=user.id)
     db.add(expense)
     db.commit()
     db.refresh(expense)
     return expense
 
 
-def find_expenses(db: Session, month: str | None, category: Category | None) -> list[Expense]:
-    """Expenses, newest first, optionally limited to one month and/or category."""
-    query = select(Expense).order_by(Expense.date.desc(), Expense.id.desc())
+def find_expenses(
+    db: Session, user: User, month: str | None, category: Category | None
+) -> list[Expense]:
+    """The user's expenses, newest first, optionally limited to one month and/or category."""
+    query = (
+        select(Expense)
+        .where(Expense.user_id == user.id)
+        .order_by(Expense.date.desc(), Expense.id.desc())
+    )
     if month is not None:
         start, end = month_range(month)
         query = query.where(Expense.date >= start, Expense.date < end)
@@ -91,10 +104,10 @@ def protect_spreadsheet_cell(text: str) -> str:
 
 @router.get("", response_model=list[ExpenseRead])
 def list_expenses(
-    db: DbSession, month: MonthQuery = None, category: Category | None = None
+    db: DbSession, user: CurrentUser, month: MonthQuery = None, category: Category | None = None
 ) -> list[Expense]:
     """List expenses, newest first, optionally filtered by month and category."""
-    return find_expenses(db, month, category)
+    return find_expenses(db, user, month, category)
 
 
 # This route must come before "/{expense_id}". Routes are tried in order, and
@@ -105,13 +118,13 @@ def list_expenses(
     responses={200: {"content": {"text/csv": {}}}},
 )
 def export_expenses_csv(
-    db: DbSession, month: MonthQuery = None, category: Category | None = None
+    db: DbSession, user: CurrentUser, month: MonthQuery = None, category: Category | None = None
 ) -> Response:
     """Download expenses as a CSV file. Takes the same filters as the list."""
     buffer = io.StringIO()
     writer = csv.writer(buffer)
     writer.writerow(CSV_COLUMNS)
-    for expense in find_expenses(db, month, category):
+    for expense in find_expenses(db, user, month, category):
         writer.writerow(
             [
                 expense.date.isoformat(),
@@ -136,13 +149,15 @@ def export_expenses_csv(
 
 
 @router.get("/{expense_id}", response_model=ExpenseRead)
-def get_expense(expense_id: int, db: DbSession) -> Expense:
-    return get_expense_or_404(db, expense_id)
+def get_expense(expense_id: int, db: DbSession, user: CurrentUser) -> Expense:
+    return get_expense_or_404(db, user, expense_id)
 
 
 @router.put("/{expense_id}", response_model=ExpenseRead)
-def update_expense(expense_id: int, payload: ExpenseUpdate, db: DbSession) -> Expense:
-    expense = get_expense_or_404(db, expense_id)
+def update_expense(
+    expense_id: int, payload: ExpenseUpdate, db: DbSession, user: CurrentUser
+) -> Expense:
+    expense = get_expense_or_404(db, user, expense_id)
     new_values = payload.model_dump()
 
     if expense.receipt_id is not None:
@@ -158,7 +173,7 @@ def update_expense(expense_id: int, payload: ExpenseUpdate, db: DbSession) -> Ex
 
 
 @router.delete("/{expense_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_expense(expense_id: int, db: DbSession) -> None:
-    expense = get_expense_or_404(db, expense_id)
+def delete_expense(expense_id: int, db: DbSession, user: CurrentUser) -> None:
+    expense = get_expense_or_404(db, user, expense_id)
     db.delete(expense)
     db.commit()

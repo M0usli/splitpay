@@ -254,7 +254,7 @@ export interface paths {
         };
         /**
          * Get Summary
-         * @description Spending summary for the Dashboard.
+         * @description The logged-in user's spending summary for the Dashboard.
          *
          *     `month` defaults to the current month on the server's clock (UTC). Amounts
          *     in different currencies cannot be added together, so the summary covers
@@ -713,7 +713,9 @@ export interface operations {
             };
             header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -742,7 +744,9 @@ export interface operations {
             query?: never;
             header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -779,7 +783,9 @@ export interface operations {
             };
             header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -810,7 +816,9 @@ export interface operations {
             path: {
                 expense_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -841,7 +849,9 @@ export interface operations {
             path: {
                 expense_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -876,7 +886,9 @@ export interface operations {
             path: {
                 expense_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -905,7 +917,9 @@ export interface operations {
             };
             header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                session?: string | null;
+            };
         };
         requestBody: {
             content: {
@@ -940,7 +954,9 @@ export interface operations {
             path: {
                 receipt_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -971,7 +987,9 @@ export interface operations {
             path: {
                 receipt_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -1004,7 +1022,9 @@ export interface operations {
             path: {
                 receipt_id: number;
             };
-            cookie?: never;
+            cookie?: {
+                session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -1038,7 +1058,9 @@ export interface operations {
             };
             header?: never;
             path?: never;
-            cookie?: never;
+            cookie?: {
+                session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {

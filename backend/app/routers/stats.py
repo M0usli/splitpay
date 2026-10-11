@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 from sqlalchemy import desc, func, select
 
+from app.auth import CurrentUser
 from app.database import DbSession
 from app.dates import MonthQuery, last_months, month_range
 from app.extraction.schemas import DEFAULT_CURRENCY
@@ -20,10 +21,11 @@ TOP_MERCHANT_COUNT = 5
 @router.get("/summary", response_model=StatsSummary)
 def get_summary(
     db: DbSession,
+    user: CurrentUser,
     month: MonthQuery = None,
     currency: Annotated[str, Query(pattern="^[A-Z]{3}$")] = DEFAULT_CURRENCY,
 ) -> StatsSummary:
-    """Spending summary for the Dashboard.
+    """The logged-in user's spending summary for the Dashboard.
 
     `month` defaults to the current month on the server's clock (UTC). Amounts
     in different currencies cannot be added together, so the summary covers
@@ -39,11 +41,13 @@ def get_summary(
     trend_start, _ = month_range(months[0])
 
     in_month = (
+        Expense.user_id == user.id,
         Expense.date >= month_start,
         Expense.date < month_end,
         Expense.currency == currency,
     )
     in_trend = (
+        Expense.user_id == user.id,
         Expense.date >= trend_start,
         Expense.date < month_end,
         Expense.currency == currency,

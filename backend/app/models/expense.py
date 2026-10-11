@@ -14,6 +14,9 @@ class Expense(Base):
     __tablename__ = "expenses"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Who this expense belongs to. Every query filters on it, so one user can
+    # never see another user's rows.
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     # Nullable so an expense can be entered by hand, without a receipt.
     receipt_id: Mapped[int | None] = mapped_column(ForeignKey("receipts.id", ondelete="SET NULL"))
     merchant: Mapped[str] = mapped_column(String(200))
