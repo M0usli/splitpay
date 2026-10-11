@@ -199,6 +199,7 @@ def test_upload_returns_the_extracted_fields(client: TestClient):
         "total": "9.58",
         "currency": None,
         "category": "Groceries",
+        "items": [],
     }
     assert body["warnings"] == []
     assert body["needs_review"] is False

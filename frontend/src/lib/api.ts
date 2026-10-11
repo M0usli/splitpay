@@ -17,6 +17,7 @@ export type ExpenseUpdate = Schemas["ExpenseUpdate"];
 export type Share = Schemas["Share-Output"];
 export type Receipt = Schemas["ReceiptRead"];
 export type ExtractedFields = Schemas["ExtractedFields"];
+export type ExtractedItem = Schemas["ExtractedItem"];
 export type StatsSummary = Schemas["StatsSummary"];
 export type Household = Schemas["HouseholdRead"];
 export type Member = Schemas["MemberRead"];

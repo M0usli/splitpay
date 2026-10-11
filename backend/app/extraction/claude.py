@@ -3,8 +3,10 @@ from pydantic import BaseModel
 
 from app.extraction.base import ExtractionError
 
-MAX_OUTPUT_TOKENS = 4096
-REQUEST_TIMEOUT_SECONDS = 60.0
+# Room for a long receipt: every item line is part of the reply. A reply that
+# hits this limit is cut off and unusable, so the limit is generous.
+MAX_OUTPUT_TOKENS = 16000
+REQUEST_TIMEOUT_SECONDS = 120.0
 
 
 class ClaudeClient:
