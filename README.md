@@ -216,7 +216,7 @@ receipt-tracker/
 │   └── tests/
 ├── frontend/
 │   └── src/
-│       ├── app/            pages (Upload, Review, Expenses, Dashboard)
+│       ├── app/            pages (Upload, Review, Expenses, Dashboard, Log in, Sign up)
 │       ├── components/     React components and their tests
 │       └── lib/            API client, generated types, formatting helpers
 ├── eval/                   test receipts, labels and results
@@ -241,6 +241,10 @@ receipt-tracker/
   Argon2. A login is a random token in an HttpOnly cookie, and the database
   keeps its SHA-256, so logging out really ends the session and a leaked
   database cannot be used to log in.
+- **The browser cannot read the login.** The cookie is HttpOnly, so the
+  frontend asks `GET /auth/me` who is signed in and shares the answer through
+  a React context. Sending signed-out visitors to the log-in page is done in
+  the browser for convenience only; the backend is what enforces access.
 - **Secrets stay out of the repository.** The API key and model name come
   from environment variables; `.env` is gitignored.
 

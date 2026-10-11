@@ -19,6 +19,22 @@ def login(client: TestClient, email: str = EMAIL, password: str = PASSWORD):
     return client.post("/auth/login", json={"email": email, "password": password})
 
 
+# --- CORS ---
+
+
+def test_the_frontend_origin_may_send_cookies(client: TestClient):
+    response = client.get("/auth/me", headers={"Origin": "http://localhost:3000"})
+
+    assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
+    assert response.headers["access-control-allow-credentials"] == "true"
+
+
+def test_another_origin_is_not_allowed(client: TestClient):
+    response = client.get("/auth/me", headers={"Origin": "http://evil.example"})
+
+    assert "access-control-allow-origin" not in response.headers
+
+
 # --- register ---
 
 
