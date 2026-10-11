@@ -18,6 +18,15 @@ class Settings(BaseSettings):
     app_name: str = "Receipt Tracker API"
     database_url: str = "postgresql+psycopg://receipts:receipts@localhost:5432/receipts"
     frontend_origin: str = "http://localhost:3000"
+    # A second address the frontend may be opened from: this computer's
+    # network address, so a phone on the same Wi-Fi can use the app. Empty
+    # means only this computer can.
+    phone_origin: str = ""
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        """Every origin the browser may call the API from."""
+        return [origin for origin in (self.frontend_origin, self.phone_origin) if origin]
 
     # Where uploaded receipt files are stored on disk.
     upload_dir: Path = Path("uploads")

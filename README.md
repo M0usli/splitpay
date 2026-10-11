@@ -117,6 +117,22 @@ The first start takes a few minutes while Docker builds the images. Database
 migrations run automatically. Without an API key everything still works except
 the AI extraction: receipts are saved and you can type the details by hand.
 
+### Use it on your phone
+
+The pages fit a phone screen, the upload page has a "Take a photo of a
+receipt" button that opens the camera, and the site can be added to the home
+screen. To reach it from a phone on the same Wi-Fi:
+
+1. Find this computer's network address: run `ipconfig` and look for the
+   IPv4 address, for example `192.168.1.20`.
+2. In `.env`, set `PHONE_ORIGIN=http://192.168.1.20:3000` (your address).
+3. Run `docker compose up -d` so both services pick it up.
+4. On the phone, open `http://192.168.1.20:3000`.
+
+If the page does not load, Windows Firewall is probably blocking ports 3000
+and 8000 for other devices. The app is only reachable inside your own
+network, over plain HTTP, so use it on a network you trust.
+
 ## API
 
 | Method | Path | Purpose |

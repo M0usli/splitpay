@@ -28,6 +28,8 @@ services:
       # services reach each other by service name, not localhost.
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       FRONTEND_ORIGIN: http://localhost:3000
+      # Optional: this computer's network address, to use the app from a phone.
+      PHONE_ORIGIN: ${PHONE_ORIGIN:-}
       UPLOAD_DIR: /data/uploads
       EVAL_DIR: /eval
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
@@ -54,6 +56,7 @@ services:
       # This URL is used by code running in your browser, so it is localhost,
       # not the "backend" service name.
       NEXT_PUBLIC_API_URL: http://localhost:8000
+      PHONE_ORIGIN: ${PHONE_ORIGIN:-}
       # Turns on file polling in next.config.ts (same reason as the backend).
       DEV_FILE_POLLING: "true"
     ports:

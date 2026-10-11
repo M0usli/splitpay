@@ -1,6 +1,13 @@
 import { afterEach, expect, test, vi } from "vitest";
 
-import { ApiError, deleteExpense, getCurrentUser, getExpense, listExpenses } from "@/lib/api";
+import {
+  ApiError,
+  deleteExpense,
+  getCurrentUser,
+  getExpense,
+  listExpenses,
+  resolveApiUrl,
+} from "@/lib/api";
 
 /** Replace the browser's fetch with a fake that answers with the given response. */
 function mockFetch(response: Response) {
@@ -67,4 +74,18 @@ test("a 204 response has no body to read", async () => {
   mockFetch(new Response(null, { status: 204 }));
 
   await expect(deleteExpense(1)).resolves.toBeUndefined();
+});
+
+test("on this computer the backend address is used as configured", () => {
+  expect(resolveApiUrl("http://localhost:8000", "localhost")).toBe("http://localhost:8000");
+  // While the server prepares a page there is no browser address to go by.
+  expect(resolveApiUrl("http://localhost:8000", null)).toBe("http://localhost:8000");
+});
+
+test("on a phone, localhost becomes the computer's network address", () => {
+  expect(resolveApiUrl("http://localhost:8000", "192.168.1.20")).toBe("http://192.168.1.20:8000");
+});
+
+test("a backend address that is not localhost is never changed", () => {
+  expect(resolveApiUrl("https://api.example.com", "192.168.1.20")).toBe("https://api.example.com");
 });

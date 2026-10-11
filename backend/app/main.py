@@ -16,7 +16,7 @@ app = FastAPI(title=settings.app_name)
 # explicitly allows the frontend's origin. This is CORS.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_origin],
+    allow_origins=settings.allowed_origins,
     # Lets the browser send the session cookie on requests from the frontend,
     # and lets the frontend's code read the answers to them.
     allow_credentials=True,

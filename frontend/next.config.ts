@@ -1,6 +1,14 @@
 import type { NextConfig } from "next";
 
+// To open the app from a phone, PHONE_ORIGIN in .env holds this computer's
+// network address, for example http://192.168.1.20:3000. The dev server
+// only answers the hostnames it knows, so that hostname is added here.
+const phoneHostname = process.env.PHONE_ORIGIN
+  ? new URL(process.env.PHONE_ORIGIN).hostname
+  : null;
+
 const nextConfig: NextConfig = {
+  allowedDevOrigins: phoneHostname === null ? [] : [phoneHostname],
   cacheComponents: true,
   partialPrefetching: true,
   // Inside Docker on Windows/macOS, file-change events from the host don't
