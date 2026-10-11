@@ -60,6 +60,8 @@ export default function EditExpenseForm({ expenseId }: EditExpenseFormProps) {
         currency: expense.currency,
         category: expense.category,
         notes: expense.notes ?? "",
+        is_shared: expense.is_shared,
+        payer_share_percent: expense.payer_share_percent,
       }}
       onSubmit={handleSubmit}
     />

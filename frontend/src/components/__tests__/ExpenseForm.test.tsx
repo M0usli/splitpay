@@ -24,6 +24,8 @@ test("submits what the user typed, with empty optional fields sent as null", asy
     currency: "CAD",
     category: "Dining",
     notes: null,
+    is_shared: false,
+    payer_share_percent: "50",
   });
 });
 

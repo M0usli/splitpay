@@ -134,6 +134,12 @@ the AI extraction: receipts are saved and you can type the details by hand.
 | POST | `/auth/login` | Log in; the session token comes back in an HttpOnly cookie |
 | POST | `/auth/logout` | End the current session |
 | GET | `/auth/me` | The logged-in user, or 401 |
+| POST | `/household` | Create a household and get its invite code |
+| GET | `/household` | The logged-in user's household and its members |
+| POST | `/household/join` | Join a household with an invite code (two members at most) |
+| POST | `/household/leave` | Leave the household |
+| GET | `/household/expenses` | Both members' shared expenses, with how each is split |
+| GET | `/household/balance` | Who owes whom, `?currency=` |
 
 Every `/receipts`, `/expenses` and `/stats` endpoint needs a login and works
 only on the logged-in user's own rows.
@@ -209,6 +215,7 @@ receipt-tracker/
 │   ├── app/
 │   │   ├── main.py         creates the FastAPI app
 │   │   ├── auth.py         password hashing, login sessions, current user
+│   │   ├── splitting.py    the arithmetic for splitting shared expenses
 │   │   ├── routers/        the HTTP endpoints
 │   │   ├── schemas/        Pydantic request and response shapes
 │   │   ├── models/         SQLAlchemy database tables
@@ -248,6 +255,9 @@ receipt-tracker/
   frontend asks `GET /auth/me` who is signed in and shares the answer through
   a React context. Sending signed-out visitors to the log-in page is done in
   the browser for convenience only; the backend is what enforces access.
+- **A split never loses a cent.** For a shared expense only the payer's part
+  is rounded (half up, to cents); the other person's part is the remainder,
+  so the two always add up to the total. The balance adds those exact parts.
 - **Each user sees only their own data.** Receipts and expenses carry a
   `user_id` taken from the login session, never from the request, and every
   query filters on it. Asking for someone else's row gives the same 404 as a

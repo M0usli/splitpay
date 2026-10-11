@@ -271,10 +271,130 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/household": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Household */
+        get: operations["get_household_household_get"];
+        put?: never;
+        /**
+         * Create Household
+         * @description Create a household. The creator becomes its first member.
+         */
+        post: operations["create_household_household_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/household/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Join Household
+         * @description Join the household that has this invite code.
+         */
+        post: operations["join_household_household_join_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/household/leave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Leave Household
+         * @description Leave the household. Its last member leaving deletes it.
+         */
+        post: operations["leave_household_household_leave_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/household/expenses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Shared Expenses
+         * @description The shared expenses of both members. Unshared expenses stay private.
+         */
+        get: operations["list_shared_expenses_household_expenses_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/household/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Balance
+         * @description Who owes whom, counting every shared expense in one currency.
+         *
+         *     Amounts in different currencies cannot be added together, so the balance
+         *     covers one currency at a time (like the Dashboard summary).
+         */
+        get: operations["get_balance_household_balance_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * BalanceRead
+         * @description Who owes whom after counting every shared expense in one currency.
+         *
+         *     When nobody owes anything, `amount` is "0.00" and both people are null.
+         */
+        BalanceRead: {
+            /** Currency */
+            currency: string;
+            /** Amount */
+            amount: string;
+            owed_by: components["schemas"]["MemberRead"] | null;
+            owed_to: components["schemas"]["MemberRead"] | null;
+            /** Shared Expense Count */
+            shared_expense_count: number;
+        };
         /** Body_upload_receipt_receipts_post */
         Body_upload_receipt_receipts_post: {
             /** File */
@@ -333,6 +453,16 @@ export interface components {
             category: components["schemas"]["Category"];
             /** Notes */
             notes?: string | null;
+            /**
+             * Is Shared
+             * @default false
+             */
+            is_shared: boolean;
+            /**
+             * Payer Share Percent
+             * @default 50
+             */
+            payer_share_percent: number | string;
             /** Receipt Id */
             receipt_id?: number | null;
         };
@@ -362,6 +492,16 @@ export interface components {
             category: components["schemas"]["Category"];
             /** Notes */
             notes?: string | null;
+            /**
+             * Is Shared
+             * @default false
+             */
+            is_shared: boolean;
+            /**
+             * Payer Share Percent
+             * @default 50
+             */
+            payer_share_percent: string;
             /** Id */
             id: number;
             /** Receipt Id */
@@ -400,6 +540,16 @@ export interface components {
             category: components["schemas"]["Category"];
             /** Notes */
             notes?: string | null;
+            /**
+             * Is Shared
+             * @default false
+             */
+            is_shared: boolean;
+            /**
+             * Payer Share Percent
+             * @default 50
+             */
+            payer_share_percent: number | string;
         };
         /**
          * ExtractedFields
@@ -440,6 +590,46 @@ export interface components {
              * @enum {string}
              */
             database: "ok" | "unavailable";
+        };
+        /**
+         * HouseholdCreate
+         * @description Request body for creating a household.
+         */
+        HouseholdCreate: {
+            /** Name */
+            name: string;
+        };
+        /**
+         * HouseholdJoin
+         * @description Request body for joining a household with the code its creator shared.
+         */
+        HouseholdJoin: {
+            /** Invite Code */
+            invite_code: string;
+        };
+        /**
+         * HouseholdRead
+         * @description The logged-in user's household.
+         */
+        HouseholdRead: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Invite Code */
+            invite_code: string;
+            /** Members */
+            members: components["schemas"]["MemberRead"][];
+        };
+        /**
+         * MemberRead
+         * @description A household member. Only what the other member needs to see.
+         */
+        MemberRead: {
+            /** Id */
+            id: number;
+            /** Email */
+            email: string;
         };
         /** MerchantTotal */
         MerchantTotal: {
@@ -488,6 +678,59 @@ export interface components {
          * @enum {string}
          */
         ReceiptStatus: "pending" | "extracted" | "failed";
+        /**
+         * SharedExpenseRead
+         * @description A shared expense, with who paid it and how the total is split.
+         */
+        SharedExpenseRead: {
+            /** Merchant */
+            merchant: string;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Subtotal */
+            subtotal?: string | null;
+            /** Tax */
+            tax?: string | null;
+            /** Total */
+            total: string;
+            /**
+             * Currency
+             * @default CAD
+             */
+            currency: string;
+            category: components["schemas"]["Category"];
+            /** Notes */
+            notes?: string | null;
+            /**
+             * Is Shared
+             * @default false
+             */
+            is_shared: boolean;
+            /**
+             * Payer Share Percent
+             * @default 50
+             */
+            payer_share_percent: string;
+            /** Id */
+            id: number;
+            /** Receipt Id */
+            receipt_id: number | null;
+            /** Was Edited */
+            was_edited: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            paid_by: components["schemas"]["MemberRead"];
+            /** Payer Part */
+            payer_part: string;
+            /** Other Part */
+            other_part: string;
+        };
         /**
          * StatsSummary
          * @description Everything the Dashboard shows, for one month and one currency.
@@ -1071,6 +1314,200 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatsSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_household_household_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HouseholdRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_household_household_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HouseholdCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HouseholdRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    join_household_household_join_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HouseholdJoin"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HouseholdRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    leave_household_household_leave_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_shared_expenses_household_expenses_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SharedExpenseRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_balance_household_balance_get: {
+        parameters: {
+            query?: {
+                currency?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BalanceRead"];
                 };
             };
             /** @description Validation Error */

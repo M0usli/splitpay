@@ -15,6 +15,11 @@ export type ExpenseFormValues = {
   currency: string;
   category: Category | "";
   notes: string;
+  // How the expense is split with a roommate. The form has no inputs for
+  // these yet; it keeps what it was given so that editing an expense does
+  // not undo its sharing.
+  is_shared: boolean;
+  payer_share_percent: string;
 };
 
 const EMPTY_VALUES: ExpenseFormValues = {
@@ -26,6 +31,8 @@ const EMPTY_VALUES: ExpenseFormValues = {
   currency: "CAD",
   category: "",
   notes: "",
+  is_shared: false,
+  payer_share_percent: "50",
 };
 
 type ExpenseFormProps = {
@@ -83,6 +90,8 @@ export default function ExpenseForm({
         currency: values.currency,
         category: values.category,
         notes: emptyToNull(values.notes),
+        is_shared: values.is_shared,
+        payer_share_percent: values.payer_share_percent,
       });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Something went wrong");

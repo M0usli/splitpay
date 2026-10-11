@@ -17,6 +17,11 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
     # The password is never stored, only its Argon2 hash (see app/auth.py).
     password_hash: Mapped[str] = mapped_column(String(200))
+    # The household this user belongs to, if any. A user is in at most one.
+    # SET NULL: deleting a household leaves its members as users without one.
+    household_id: Mapped[int | None] = mapped_column(
+        ForeignKey("households.id", ondelete="SET NULL"), index=True
+    )
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

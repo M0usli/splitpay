@@ -1,7 +1,7 @@
 import datetime
 from decimal import Decimal
 
-from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text, false, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.enums import Category
@@ -28,6 +28,14 @@ class Expense(Base):
     currency: Mapped[str] = mapped_column(String(3), default="CAD")
     category: Mapped[Category] = mapped_column(enum_column_type(Category), index=True)
     notes: Mapped[str | None] = mapped_column(Text)
+    # A shared expense is split with the other member of the user's household.
+    # server_default fills these in for rows that existed before the columns did.
+    is_shared: Mapped[bool] = mapped_column(default=False, server_default=false())
+    # The part, in percent, that the person who paid covers themselves. With
+    # 50 the other person owes half of the total.
+    payer_share_percent: Mapped[Decimal] = mapped_column(
+        Numeric(5, 2), default=Decimal("50"), server_default="50"
+    )
     # True if the user corrected any field the AI extracted.
     was_edited: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime.datetime] = mapped_column(
