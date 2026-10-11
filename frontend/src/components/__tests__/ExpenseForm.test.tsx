@@ -1,8 +1,74 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { expect, test, vi } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 
 import ExpenseForm from "@/components/ExpenseForm";
+import type { HouseholdInfo } from "@/components/useHousehold";
+
+// The form asks useHousehold who the user lives with. Most tests leave it at
+// null (no household); the sharing tests at the end set one.
+const household = vi.hoisted(() => ({ info: null as HouseholdInfo | null }));
+vi.mock("@/components/useHousehold", () => ({ useHousehold: () => household.info }));
+
+const WITH_ROOMMATE: HouseholdInfo = {
+  myId: 1,
+  household: {
+    id: 7,
+    name: "Apartment 4B",
+    invite_code: "AF6S4JQ8",
+    members: [
+      { id: 1, email: "sam@example.com" },
+      { id: 2, email: "alex@example.com" },
+    ],
+  },
+};
+
+async function fillRequiredFields(total: string) {
+  await userEvent.type(screen.getByLabelText("Merchant"), "FreshCo");
+  await userEvent.type(screen.getByLabelText("Date"), "2026-10-08");
+  await userEvent.selectOptions(screen.getByLabelText("Category"), "Groceries");
+  await userEvent.type(screen.getByLabelText("Total"), total);
+}
+
+beforeEach(() => {
+  household.info = null;
+});
+
+test("offers no sharing to someone without a household", () => {
+  render(<ExpenseForm submitLabel="Save" onSubmit={vi.fn()} />);
+
+  expect(screen.queryByLabelText("Share this expense with my household")).not.toBeInTheDocument();
+});
+
+test("a shared expense split equally among everyone sends no parts", async () => {
+  household.info = WITH_ROOMMATE;
+  const onSubmit = vi.fn(() => Promise.resolve());
+  render(<ExpenseForm submitLabel="Save" onSubmit={onSubmit} />);
+
+  await fillRequiredFields("87.40");
+  await userEvent.click(screen.getByLabelText("Share this expense with my household"));
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ is_shared: true, shares: null }));
+});
+
+test("amounts that do not add up stop the form and say why", async () => {
+  household.info = WITH_ROOMMATE;
+  const onSubmit = vi.fn(() => Promise.resolve());
+  render(<ExpenseForm submitLabel="Save" onSubmit={onSubmit} />);
+
+  await fillRequiredFields("87.40");
+  await userEvent.click(screen.getByLabelText("Share this expense with my household"));
+  await userEvent.click(screen.getByLabelText("By amount"));
+  await userEvent.type(screen.getByLabelText("Amount for Me (sam@example.com)"), "50");
+  await userEvent.type(screen.getByLabelText("Amount for alex@example.com"), "30");
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "The amounts add up to 80.00, but the total is 87.40.",
+  );
+  expect(onSubmit).not.toHaveBeenCalled();
+});
 
 test("submits what the user typed, with empty optional fields sent as null", async () => {
   const user = userEvent.setup();

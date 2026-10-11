@@ -2,7 +2,10 @@
 
 import { useState, type FormEvent } from "react";
 
+import SharingFields from "@/components/SharingFields";
+import { useHousehold } from "@/components/useHousehold";
 import { CATEGORIES, type Category, type ExpenseUpdate, type Share } from "@/lib/api";
+import { buildShares, sharingFromExpense, type SharingValues } from "@/lib/split";
 
 // What the inputs hold while the user is typing. Inputs always produce
 // strings, so amounts stay strings here and the API parses them as decimals.
@@ -15,9 +18,8 @@ export type ExpenseFormValues = {
   currency: string;
   category: Category | "";
   notes: string;
-  // How the expense is shared with the household. The form has no inputs
-  // for these yet; it keeps what it was given so that editing an expense
-  // does not undo its sharing. null shares mean "split equally".
+  // How a saved expense is shared with the household. The Sharing section
+  // starts from these. null shares mean "split equally".
   is_shared: boolean;
   shares: Share[] | null;
 };
@@ -64,6 +66,13 @@ export default function ExpenseForm({
     ...EMPTY_VALUES,
     ...initialValues,
   });
+  // Sharing is only offered when there is someone to share with.
+  const householdInfo = useHousehold();
+  const members = householdInfo?.household.members ?? [];
+  const canShare = householdInfo !== null && members.length > 1;
+  const [sharing, setSharing] = useState<SharingValues>(() =>
+    sharingFromExpense(values.is_shared, values.shares ?? []),
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,6 +87,20 @@ export default function ExpenseForm({
       return;
     }
 
+    // Without a household the saved sharing is passed on unchanged.
+    let isShared = values.is_shared;
+    let shares = values.shares;
+    if (canShare) {
+      const memberIds = members.map((member) => member.id);
+      const result = buildShares(sharing, values.total, memberIds, householdInfo.myId);
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      isShared = result.isShared;
+      shares = result.shares;
+    }
+
     setIsSubmitting(true);
     setError(null);
     try {
@@ -90,10 +113,8 @@ export default function ExpenseForm({
         currency: values.currency,
         category: values.category,
         notes: emptyToNull(values.notes),
-        is_shared: values.is_shared,
-        // The saved parts only fit the saved total. If the total was
-        // changed, let the backend split the new one equally.
-        shares: values.total === initialValues?.total ? values.shares : null,
+        is_shared: isShared,
+        shares,
       });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Something went wrong");
@@ -213,6 +234,15 @@ export default function ExpenseForm({
           className={inputClass}
         />
       </div>
+
+      {canShare && (
+        <SharingFields
+          members={members}
+          myId={householdInfo.myId}
+          value={sharing}
+          onChange={setSharing}
+        />
+      )}
 
       {error !== null && (
         <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">

@@ -8,7 +8,7 @@ test.
 from collections.abc import Iterable
 from decimal import ROUND_DOWN, Decimal
 
-from app.models import Expense
+from app.models import Expense, Settlement
 
 CENT = Decimal("0.01")
 ZERO = Decimal("0.00")
@@ -26,7 +26,11 @@ def split_equally(total: Decimal, people: int) -> list[Decimal]:
     return [base + CENT if position < leftover_cents else base for position in range(people)]
 
 
-def net_balances(member_ids: Iterable[int], expenses: Iterable[Expense]) -> dict[int, Decimal]:
+def net_balances(
+    member_ids: Iterable[int],
+    expenses: Iterable[Expense],
+    settlements: Iterable[Settlement] = (),
+) -> dict[int, Decimal]:
     """For each member: what they are owed minus what they owe.
 
     Positive means the household owes this person money; negative means this
@@ -34,7 +38,10 @@ def net_balances(member_ids: Iterable[int], expenses: Iterable[Expense]) -> dict
     goes up by that amount and the share's owner goes down by it, so the
     numbers always add up to zero.
 
-    Shares of people who are no longer members are left out.
+    A settlement is money paid back: the person who paid goes up (they owe
+    less) and the person who received it goes down (they are owed less).
+
+    Shares and settlements of people who are no longer members are left out.
     """
     balances = {member_id: ZERO for member_id in member_ids}
     for expense in expenses:
@@ -46,6 +53,10 @@ def net_balances(member_ids: Iterable[int], expenses: Iterable[Expense]) -> dict
                 continue
             balances[payer_id] += share.amount
             balances[share.user_id] -= share.amount
+    for settlement in settlements:
+        if settlement.from_user_id in balances and settlement.to_user_id in balances:
+            balances[settlement.from_user_id] += settlement.amount
+            balances[settlement.to_user_id] -= settlement.amount
     return balances
 
 

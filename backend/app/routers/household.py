@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.auth import CurrentUser
 from app.database import DbSession
 from app.extraction.schemas import DEFAULT_CURRENCY
-from app.models import Expense, Household, User
+from app.models import Expense, Household, Settlement, User
 from app.schemas.expense import ExpenseRead
 from app.schemas.household import (
     BalanceRead,
@@ -18,6 +18,8 @@ from app.schemas.household import (
     MemberBalance,
     MemberRead,
     Payment,
+    SettlementCreate,
+    SettlementRead,
     SharedExpenseRead,
 )
 from app.splitting import net_balances, plan_payments
@@ -166,7 +168,7 @@ def get_balance(
         member.id: MemberRead.model_validate(member) for member in get_members(db, household.id)
     }
     expenses = find_shared_expenses(db, household, currency)
-    balances = net_balances(members, expenses)
+    balances = net_balances(members, expenses, find_settlements(db, household, currency))
 
     return BalanceRead(
         currency=currency,
@@ -179,3 +181,78 @@ def get_balance(
             for owed_by, owed_to, amount in plan_payments(balances)
         ],
     )
+
+
+def find_settlements(db: Session, household: Household, currency: str | None) -> list[Settlement]:
+    """The household's recorded payments, newest first."""
+    query = (
+        select(Settlement)
+        .where(Settlement.household_id == household.id)
+        .order_by(Settlement.created_at.desc(), Settlement.id.desc())
+    )
+    if currency is not None:
+        query = query.where(Settlement.currency == currency)
+    return list(db.scalars(query))
+
+
+def to_settlement_read(settlement: Settlement, members: dict[int, User]) -> SettlementRead:
+    return SettlementRead(
+        id=settlement.id,
+        paid_by=MemberRead.model_validate(members[settlement.from_user_id]),
+        paid_to=MemberRead.model_validate(members[settlement.to_user_id]),
+        amount=settlement.amount,
+        currency=settlement.currency,
+        created_at=settlement.created_at,
+    )
+
+
+@router.post("/settlements", response_model=SettlementRead, status_code=status.HTTP_201_CREATED)
+def record_settlement(
+    payload: SettlementCreate, db: DbSession, user: CurrentUser
+) -> SettlementRead:
+    """Record that the logged-in user paid another member back.
+
+    Only the person who paid can record it, so nobody can clear their own
+    debt by claiming someone else paid.
+    """
+    household = get_household_or_404(db, user)
+    members = {member.id: member for member in get_members(db, household.id)}
+    if payload.to_user_id == user.id or payload.to_user_id not in members:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="A payment must go to another member of your household",
+        )
+
+    settlement = Settlement(
+        household_id=household.id,
+        from_user_id=user.id,
+        to_user_id=payload.to_user_id,
+        amount=payload.amount,
+        currency=payload.currency,
+    )
+    db.add(settlement)
+    db.commit()
+    db.refresh(settlement)
+    return to_settlement_read(settlement, members)
+
+
+@router.get("/settlements", response_model=list[SettlementRead])
+def list_settlements(db: DbSession, user: CurrentUser) -> list[SettlementRead]:
+    household = get_household_or_404(db, user)
+    members = {member.id: member for member in get_members(db, household.id)}
+    return [
+        to_settlement_read(settlement, members)
+        for settlement in find_settlements(db, household, currency=None)
+        # Skip payments that involve someone who has since left.
+        if settlement.from_user_id in members and settlement.to_user_id in members
+    ]
+
+
+@router.delete("/settlements/{settlement_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_settlement(settlement_id: int, db: DbSession, user: CurrentUser) -> None:
+    """Remove a payment recorded by mistake. Only the person who recorded it can."""
+    settlement = db.get(Settlement, settlement_id)
+    if settlement is None or settlement.from_user_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Payment not found")
+    db.delete(settlement)
+    db.commit()

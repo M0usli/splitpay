@@ -1,3 +1,6 @@
+import datetime
+from decimal import Decimal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.expense import ExpenseRead
@@ -38,6 +41,26 @@ class SharedExpenseRead(ExpenseRead):
     """A shared expense as the whole household sees it, with who paid."""
 
     paid_by: MemberRead
+
+
+class SettlementCreate(BaseModel):
+    """Request body for recording that the logged-in user paid a member back."""
+
+    to_user_id: int
+    # gt=0: a payment of nothing is not a payment.
+    amount: Decimal = Field(gt=0, max_digits=10, decimal_places=2)
+    currency: str = Field(default="CAD", pattern="^[A-Z]{3}$")
+
+
+class SettlementRead(BaseModel):
+    """A recorded payment between two members."""
+
+    id: int
+    paid_by: MemberRead
+    paid_to: MemberRead
+    amount: Amount
+    currency: str
+    created_at: datetime.datetime
 
 
 class MemberBalance(BaseModel):
