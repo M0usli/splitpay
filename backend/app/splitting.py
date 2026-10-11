@@ -11,13 +11,21 @@ from app.models import Expense
 CENT = Decimal("0.01")
 
 
-def split_total(total: Decimal, payer_share_percent: Decimal) -> tuple[Decimal, Decimal]:
+def split_total(
+    total: Decimal, payer_share_percent: Decimal, other_share_amount: Decimal | None = None
+) -> tuple[Decimal, Decimal]:
     """Split a total into (the payer's part, the other person's part).
 
-    Only the payer's part is rounded. The other part is whatever is left, so
-    the two always add up to exactly the total and no cent is lost or
-    invented. For example 10.01 at 50% gives 5.01 and 5.00.
+    A fixed `other_share_amount` wins over the percent: the other person owes
+    exactly that, and the payer covers the rest.
+
+    With a percent, only the payer's part is rounded. The other part is
+    whatever is left, so the two always add up to exactly the total and no
+    cent is lost or invented. For example 10.01 at 50% gives 5.01 and 5.00.
     """
+    if other_share_amount is not None:
+        return total - other_share_amount, other_share_amount
+
     # ROUND_HALF_UP is the rounding taught at school: 0.005 becomes 0.01.
     # Python's default rounds halves to the nearest even digit instead.
     payer_part = (total * payer_share_percent / 100).quantize(CENT, rounding=ROUND_HALF_UP)
@@ -33,7 +41,9 @@ def amount_owed_to(payer_id: int, shared_expenses: Iterable[Expense]) -> Decimal
     """
     balance = Decimal("0.00")
     for expense in shared_expenses:
-        _, other_part = split_total(expense.total, expense.payer_share_percent)
+        _, other_part = split_total(
+            expense.total, expense.payer_share_percent, expense.other_share_amount
+        )
         if expense.user_id == payer_id:
             balance += other_part
         else:

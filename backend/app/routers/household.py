@@ -134,7 +134,9 @@ def list_shared_expenses(db: DbSession, user: CurrentUser) -> list[SharedExpense
 
     result = []
     for expense in find_shared_expenses(db, members, currency=None):
-        payer_part, other_part = split_total(expense.total, expense.payer_share_percent)
+        payer_part, other_part = split_total(
+            expense.total, expense.payer_share_percent, expense.other_share_amount
+        )
         result.append(
             SharedExpenseRead(
                 # The usual expense fields, plus the three about the split.

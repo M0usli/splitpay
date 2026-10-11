@@ -255,9 +255,11 @@ receipt-tracker/
   frontend asks `GET /auth/me` who is signed in and shares the answer through
   a React context. Sending signed-out visitors to the log-in page is done in
   the browser for convenience only; the backend is what enforces access.
-- **A split never loses a cent.** For a shared expense only the payer's part
-  is rounded (half up, to cents); the other person's part is the remainder,
-  so the two always add up to the total. The balance adds those exact parts.
+- **A split never loses a cent.** A shared expense is split by percent
+  (50/50 by default) or by an exact amount the other person owes. With a
+  percent, only the payer's part is rounded (half up, to cents) and the
+  other person's part is the remainder, so the two always add up to the
+  total. The balance adds those exact parts.
 - **Each user sees only their own data.** Receipts and expenses carry a
   `user_id` taken from the login session, never from the request, and every
   query filters on it. Asking for someone else's row gives the same 404 as a

@@ -1,8 +1,8 @@
 import datetime
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.enums import Category
 
@@ -29,6 +29,15 @@ class ExpenseBase(BaseModel):
     is_shared: bool = False
     # The percent of the total that the person who paid covers themselves.
     payer_share_percent: Percent = Decimal("50")
+    # Or a fixed amount the other person owes. When set, it replaces the percent.
+    other_share_amount: Money | None = None
+
+    @model_validator(mode="after")
+    def other_share_fits_in_total(self) -> Self:
+        """Nobody can owe more than the whole expense."""
+        if self.other_share_amount is not None and self.other_share_amount > self.total:
+            raise ValueError("other_share_amount cannot be more than the total")
+        return self
 
 
 class ExpenseCreate(ExpenseBase):

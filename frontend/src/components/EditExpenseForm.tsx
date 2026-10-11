@@ -62,6 +62,7 @@ export default function EditExpenseForm({ expenseId }: EditExpenseFormProps) {
         notes: expense.notes ?? "",
         is_shared: expense.is_shared,
         payer_share_percent: expense.payer_share_percent,
+        other_share_amount: expense.other_share_amount ?? null,
       }}
       onSubmit={handleSubmit}
     />

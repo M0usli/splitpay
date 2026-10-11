@@ -71,6 +71,13 @@ def test_split_total_rounds_half_a_cent_up():
     assert split_total(Decimal("0.25"), Decimal("50")) == (Decimal("0.13"), Decimal("0.12"))
 
 
+def test_a_fixed_amount_is_used_instead_of_the_percent():
+    # The other person owes exactly 20.00 of 33.33, whatever the percent says.
+    parts = split_total(Decimal("33.33"), Decimal("50"), Decimal("20.00"))
+
+    assert parts == (Decimal("13.33"), Decimal("20.00"))
+
+
 # --- creating and joining ---
 
 
@@ -257,6 +264,44 @@ def test_balance_uses_each_expenses_own_split(client: TestClient, other_client: 
     add_shared(client, "1500.00", payer_share_percent="60")
 
     assert balance(client)["amount"] == "600.00"
+
+
+def test_balance_uses_a_fixed_amount_when_one_is_given(
+    client: TestClient, other_client: TestClient
+):
+    share_household(client, other_client)
+    # Groceries were 87.40, and Alex's items came to exactly 31.15.
+    expense = add_shared(client, "87.40", other_share_amount="31.15")
+
+    assert expense["other_share_amount"] == "31.15"
+    assert balance(client)["amount"] == "31.15"
+    shared = client.get("/household/expenses").json()[0]
+    assert (shared["payer_part"], shared["other_part"]) == ("56.25", "31.15")
+
+
+def test_the_fixed_amount_cannot_be_more_than_the_total(client: TestClient):
+    payload = expense_payload(total="50.00", subtotal=None, tax=None, other_share_amount="50.01")
+
+    response = client.post("/expenses", json=payload)
+
+    assert response.status_code == 422
+    # The whole total is allowed: the other person owes all of it.
+    payload["other_share_amount"] = "50.00"
+    assert client.post("/expenses", json=payload).status_code == 201
+
+
+def test_clearing_the_fixed_amount_goes_back_to_the_percent(
+    client: TestClient, other_client: TestClient
+):
+    share_household(client, other_client)
+    expense = add_shared(client, "100.00", other_share_amount="10.00")
+
+    client.put(
+        f"/expenses/{expense['id']}",
+        json=expense_payload(total="100.00", subtotal=None, tax=None, is_shared=True),
+    )
+
+    assert balance(client)["amount"] == "50.00"
 
 
 def test_balance_rounds_each_expense_and_adds_exact_cents(

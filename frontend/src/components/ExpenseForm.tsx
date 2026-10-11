@@ -20,6 +20,7 @@ export type ExpenseFormValues = {
   // not undo its sharing.
   is_shared: boolean;
   payer_share_percent: string;
+  other_share_amount: string | null;
 };
 
 const EMPTY_VALUES: ExpenseFormValues = {
@@ -33,6 +34,7 @@ const EMPTY_VALUES: ExpenseFormValues = {
   notes: "",
   is_shared: false,
   payer_share_percent: "50",
+  other_share_amount: null,
 };
 
 type ExpenseFormProps = {
@@ -92,6 +94,7 @@ export default function ExpenseForm({
         notes: emptyToNull(values.notes),
         is_shared: values.is_shared,
         payer_share_percent: values.payer_share_percent,
+        other_share_amount: values.other_share_amount,
       });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Something went wrong");

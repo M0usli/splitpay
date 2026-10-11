@@ -36,6 +36,9 @@ class Expense(Base):
     payer_share_percent: Mapped[Decimal] = mapped_column(
         Numeric(5, 2), default=Decimal("50"), server_default="50"
     )
+    # Or a fixed amount the other person owes, for example exactly 20.00. When
+    # this is set it is used instead of the percent.
+    other_share_amount: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     # True if the user corrected any field the AI extracted.
     was_edited: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime.datetime] = mapped_column(

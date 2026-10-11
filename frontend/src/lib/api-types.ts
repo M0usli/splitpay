@@ -463,6 +463,8 @@ export interface components {
              * @default 50
              */
             payer_share_percent: number | string;
+            /** Other Share Amount */
+            other_share_amount?: number | string | null;
             /** Receipt Id */
             receipt_id?: number | null;
         };
@@ -502,6 +504,8 @@ export interface components {
              * @default 50
              */
             payer_share_percent: string;
+            /** Other Share Amount */
+            other_share_amount?: string | null;
             /** Id */
             id: number;
             /** Receipt Id */
@@ -550,6 +554,8 @@ export interface components {
              * @default 50
              */
             payer_share_percent: number | string;
+            /** Other Share Amount */
+            other_share_amount?: number | string | null;
         };
         /**
          * ExtractedFields
@@ -714,6 +720,8 @@ export interface components {
              * @default 50
              */
             payer_share_percent: string;
+            /** Other Share Amount */
+            other_share_amount?: string | null;
             /** Id */
             id: number;
             /** Receipt Id */
