@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import ExpenseForm, { type ExpenseFormValues } from "@/components/ExpenseForm";
 import ReceiptImage from "@/components/ReceiptImage";
+import ReceiptItems from "@/components/ReceiptItems";
 import {
   createExpense,
   getReceipt,
@@ -70,6 +71,10 @@ export default function ReceiptReview({ receiptId }: ReceiptReviewProps) {
   const { receipt } = status;
   const extracted = receipt.extracted_fields;
   const canExtract = extracted === null && receipt.raw_text !== null;
+  const items = extracted?.items ?? [];
+  // Receipts read before the app looked for items have none; reading them
+  // again fills the items in.
+  const canReadItems = extracted !== null && items.length === 0 && receipt.raw_text !== null;
 
   async function handleExtract() {
     setIsExtracting(true);
@@ -132,6 +137,21 @@ export default function ReceiptReview({ receiptId }: ReceiptReviewProps) {
           >
             {isExtracting ? "Reading with AI…" : "Read the details with AI"}
           </button>
+        )}
+
+        {canReadItems && (
+          <button
+            type="button"
+            onClick={handleExtract}
+            disabled={isExtracting}
+            className="mb-4 rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium hover:bg-zinc-50 disabled:opacity-50"
+          >
+            {isExtracting ? "Reading with AI…" : "Read the items with AI"}
+          </button>
+        )}
+
+        {items.length > 0 && (
+          <ReceiptItems items={items} currency={extracted?.currency ?? "CAD"} />
         )}
 
         <div className="rounded-lg border border-zinc-200 bg-white p-5">

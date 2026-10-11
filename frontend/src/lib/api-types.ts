@@ -608,6 +608,22 @@ export interface components {
             /** Currency */
             currency: string | null;
             category: components["schemas"]["Category"] | null;
+            /** Items */
+            items: components["schemas"]["ExtractedItem"][];
+        };
+        /**
+         * ExtractedItem
+         * @description One line of a receipt: something bought, or a discount.
+         */
+        ExtractedItem: {
+            /** Name */
+            name: string;
+            /** Quantity */
+            quantity: number | null;
+            /** Price */
+            price: string;
+            /** Is Taxable */
+            is_taxable: boolean | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {

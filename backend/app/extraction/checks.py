@@ -27,4 +27,12 @@ def find_warnings(fields: ExtractedFields) -> list[str]:
                 "One of these amounts may have been misread."
             )
 
+    if fields.items and fields.subtotal is not None:
+        items_total = sum(item.price for item in fields.items)
+        if abs(items_total - fields.subtotal) > TOTAL_TOLERANCE:
+            warnings.append(
+                f"The items add up to {items_total}, but the subtotal is {fields.subtotal}. "
+                "An item may be missing or misread."
+            )
+
     return warnings

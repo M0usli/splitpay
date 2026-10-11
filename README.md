@@ -122,7 +122,7 @@ the AI extraction: receipts are saved and you can type the details by hand.
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/receipts` | Upload a file, run OCR and extraction |
-| GET | `/receipts/{id}` | A receipt with its extracted fields and warnings |
+| GET | `/receipts/{id}` | A receipt with its extracted fields, item lines and warnings |
 | POST | `/receipts/{id}/extract` | Run the extraction again on the stored OCR text |
 | GET | `/receipts/{id}/image` | The receipt image (`?processed=true` for the cleaned version) |
 | POST | `/expenses` | Create an expense |
@@ -244,6 +244,11 @@ receipt-tracker/
   validated again by Pydantic, gets one retry, and the model is told to
   return null instead of guessing. Receipt text is passed as data inside
   tags, so text printed on a receipt cannot act as instructions.
+- **Item lines are read too, and checked.** Each line has a name, a
+  quantity, a price (negative for a discount) and whether it was taxed, or
+  null when the receipt does not say. The items are stored with the rest of
+  the AI's answer, and the user is warned when they do not add up to the
+  subtotal.
 - **OCR and the LLM sit behind small interfaces.** Tests swap in fakes, and a
   different OCR engine or model provider would be a one-file change.
 - **A failed receipt is still saved**, with a status and a message, so the
