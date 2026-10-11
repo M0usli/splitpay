@@ -1,0 +1,94 @@
+# Continuous integration: GitHub runs these checks on every push and pull
+# request, on a fresh machine. A red X on a commit means one of them failed.
+#
+# No API key is needed here: the tests replace OCR and the LLM with fakes.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend (ruff, pytest)
+    runs-on: ubuntu-latest
+
+    # A throwaway PostgreSQL for the tests, started next to the job.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: receipts
+          POSTGRES_PASSWORD: receipts
+          POSTGRES_DB: receipts
+        ports:
+          - 5432:5432
+        # Wait until the database accepts connections before running steps.
+        options: >-
+          --health-cmd "pg_isready -U receipts -d receipts"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: backend
+
+    env:
+      DATABASE_URL: postgresql+psycopg://receipts:receipts@localhost:5432/receipts
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      # A few OCR tests run the real Tesseract program on generated images.
+      - name: Install Tesseract
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Check formatting (ruff)
+        run: ruff format --check .
+
+      - name: Run tests (pytest)
+        run: pytest
+
+  frontend:
+    name: Frontend (ESLint, tsc, Vitest)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # "npm ci" installs exactly what package-lock.json lists.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Type check (tsc)
+        run: npm run typecheck
+
+      - name: Run tests (Vitest)
+        run: npm test

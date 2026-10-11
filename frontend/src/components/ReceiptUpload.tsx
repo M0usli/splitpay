@@ -1,0 +1,148 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, type ChangeEvent, type DragEvent } from "react";
+
+import { uploadReceipt } from "@/lib/api";
+
+const ACCEPTED_TYPES = ["image/jpeg", "image/png", "application/pdf"];
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
+type Status =
+  | { state: "idle" }
+  | { state: "uploading"; fileName: string }
+  // receiptId is set when the file was saved but could not be read, so the
+  // user can still open it and type the details in.
+  | { state: "error"; message: string; receiptId?: number };
+
+/** Quick checks in the browser. The backend checks again; this just saves a round trip. */
+function findProblem(file: File): string | null {
+  if (!ACCEPTED_TYPES.includes(file.type)) {
+    return "That file type is not supported. Choose a JPG, PNG or PDF.";
+  }
+  if (file.size > MAX_FILE_BYTES) {
+    return "That file is larger than 10 MB.";
+  }
+  return null;
+}
+
+export default function ReceiptUpload() {
+  const router = useRouter();
+  const [status, setStatus] = useState<Status>({ state: "idle" });
+  const [isDragging, setIsDragging] = useState(false);
+
+  const isUploading = status.state === "uploading";
+
+  async function handleFile(file: File) {
+    const problem = findProblem(file);
+    if (problem !== null) {
+      setStatus({ state: "error", message: problem });
+      return;
+    }
+
+    setStatus({ state: "uploading", fileName: file.name });
+    try {
+      const receipt = await uploadReceipt(file);
+      if (receipt.status === "failed") {
+        setStatus({
+          state: "error",
+          message: receipt.error_message ?? "The receipt could not be read.",
+          receiptId: receipt.id,
+        });
+        return;
+      }
+      router.push(`/receipts/${receipt.id}`);
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Something went wrong";
+      setStatus({ state: "error", message });
+    }
+  }
+
+  function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleFile(file);
+    }
+    // Clear the input so choosing the same file again still triggers a change.
+    event.target.value = "";
+  }
+
+  function handleDragOver(event: DragEvent<HTMLLabelElement>) {
+    // Without this the browser refuses the drop and opens the file instead.
+    event.preventDefault();
+    if (!isUploading) {
+      setIsDragging(true);
+    }
+  }
+
+  function handleDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setIsDragging(false);
+    const file = event.dataTransfer.files[0];
+    if (file && !isUploading) {
+      handleFile(file);
+    }
+  }
+
+  return (
+    <div>
+      {/* A label wraps the hidden file input, so clicking anywhere in the box opens the file picker. */}
+      <label
+        onDragOver={handleDragOver}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={handleDrop}
+        className={
+          "flex min-h-56 flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors " +
+          "focus-within:border-zinc-900 focus-within:ring-2 focus-within:ring-zinc-300 " +
+          (isUploading
+            ? "cursor-wait border-zinc-300 bg-zinc-100"
+            : isDragging
+              ? "cursor-copy border-zinc-900 bg-zinc-100"
+              : "cursor-pointer border-zinc-300 bg-white hover:border-zinc-500")
+        }
+      >
+        <input
+          type="file"
+          accept={ACCEPTED_TYPES.join(",")}
+          disabled={isUploading}
+          onChange={handleInputChange}
+          className="sr-only"
+        />
+        {status.state === "uploading" ? (
+          <>
+            <span
+              aria-hidden
+              className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-900"
+            />
+            <p role="status" className="mt-4 font-medium">
+              Reading your receipt…
+            </p>
+            <p className="mt-1 text-sm text-zinc-500">{status.fileName}</p>
+          </>
+        ) : (
+          <>
+            <p className="text-lg font-medium">
+              {isDragging ? "Drop the receipt here" : "Drag a receipt here, or click to choose a file"}
+            </p>
+            <p className="mt-1 text-sm text-zinc-500">JPG, PNG or PDF, up to 10 MB</p>
+          </>
+        )}
+      </label>
+
+      {status.state === "error" && (
+        <p role="alert" className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          {status.message}
+          {status.receiptId !== undefined && (
+            <>
+              {" "}
+              <Link href={`/receipts/${status.receiptId}`} className="font-medium underline">
+                Enter the details by hand
+              </Link>
+            </>
+          )}
+        </p>
+      )}
+    </div>
+  );
+}

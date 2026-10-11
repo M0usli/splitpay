@@ -1,0 +1,6 @@
+filename,merchant,date,tax,total,category
+sample-01-freshco.jpg,FreshCo,2026-10-08,1.62,38.47,Groceries
+sample-02-tim-hortons.png,Tim Hortons,2026-10-03,0.76,6.64,Dining
+sample-03-shoppers.jpg,Shoppers Drug Mart,2026-09-27,3.18,27.65,Health
+sample-04-presto.png,Presto,2026-09-27,NONE,40.00,Transport
+sample-05-diner.jpg,The Early Bird Diner,2026-09-19,4.94,42.94,Dining

@@ -1,0 +1,30 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Node / Next.js
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Evaluation: receipt photos are personal (card digits, addresses), so they
+# stay on this machine. The made-up ones in eval/sample/ are committed.
+eval/receipts/*
+!eval/receipts/.gitkeep
+eval/sample/results.csv
+
+# Personal study notes, not part of the project.
+learning-slides/
