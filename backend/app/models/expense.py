@@ -14,6 +14,11 @@ class Expense(Base):
     """One saved expense, either entered by hand or created from a receipt."""
 
     __tablename__ = "expenses"
+    # At most one expense per recurring cost per month. The database itself
+    # refuses a second one, even if two requests try at the same moment.
+    __table_args__ = (
+        UniqueConstraint("recurring_id", "recurring_month", name="uq_expenses_recurring_month"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     # Who this expense belongs to: the person who paid. Every query filters on
@@ -39,6 +44,12 @@ class Expense(Base):
     # for, kept so the split can be opened and changed later. The amounts
     # that count are still the shares below; this is how they were reached.
     split_items: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
+    # Set when the expense was made from a recurring cost: which one, and for
+    # which month ("YYYY-MM"). The unique rule below uses the pair.
+    recurring_id: Mapped[int | None] = mapped_column(
+        ForeignKey("recurring_expenses.id", ondelete="SET NULL"), index=True
+    )
+    recurring_month: Mapped[str | None] = mapped_column(String(7))
     # True if the user corrected any field the AI extracted.
     was_edited: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime.datetime] = mapped_column(

@@ -22,6 +22,7 @@ function makeExpense(overrides: Partial<Expense> = {}): Expense {
     is_shared: false,
     shares: [],
     split_items: null,
+    recurring_id: null,
     created_at: "2026-10-08T14:32:07Z",
     ...overrides,
   };

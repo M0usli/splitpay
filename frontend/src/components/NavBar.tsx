@@ -11,6 +11,7 @@ const links = [
   { href: "/expenses", label: "Expenses" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/household", label: "Split bill" },
+  { href: "/recurring", label: "Recurring" },
   { href: "/expenses/new", label: "Add expense" },
 ];
 

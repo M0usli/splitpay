@@ -9,6 +9,8 @@ type SharingFieldsProps = {
   myId: number;
   value: SharingValues;
   onChange: (value: SharingValues) => void;
+  /** Offer "By item". Off for things that have no items, like monthly rent. */
+  allowByItem?: boolean;
 };
 
 const MODES: { mode: SplitMode; label: string }[] = [
@@ -23,7 +25,14 @@ const smallInputClass =
   "focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500";
 
 /** The part of the expense form that says who shares an expense and how. */
-export default function SharingFields({ members, myId, value, onChange }: SharingFieldsProps) {
+export default function SharingFields({
+  members,
+  myId,
+  value,
+  onChange,
+  allowByItem = true,
+}: SharingFieldsProps) {
+  const modes = allowByItem ? MODES : MODES.filter(({ mode }) => mode !== "item");
   const allIds = members.map((member) => member.id);
 
   function toggleShared(isShared: boolean) {
@@ -58,7 +67,7 @@ export default function SharingFields({ members, myId, value, onChange }: Sharin
       {value.isShared && (
         <div className="mt-3 space-y-3">
           <div className="flex flex-wrap gap-4 text-sm" role="radiogroup" aria-label="How to split">
-            {MODES.map(({ mode, label }) => (
+            {modes.map(({ mode, label }) => (
               <label key={mode} className="flex items-center gap-1.5">
                 <input
                   type="radio"
