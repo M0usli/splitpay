@@ -33,7 +33,35 @@ export type User = Schemas["UserRead"];
 export type Credentials = Schemas["Credentials"];
 
 // Variables starting with NEXT_PUBLIC_ are made available to browser code.
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const CONFIGURED_API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+/**
+ * Where the backend is, seen from the device showing the page.
+ *
+ * On this computer the page is opened as http://localhost:3000 and the
+ * backend is http://localhost:8000. On a phone, "localhost" would mean the
+ * phone itself. The phone opens the page by the computer's network address
+ * (for example http://192.168.1.20:3000), so the backend is at that same
+ * address: "localhost" in the configured URL is swapped for it.
+ */
+export function resolveApiUrl(configuredUrl: string, pageHostname: string | null): string {
+  if (pageHostname === null || pageHostname === "localhost") {
+    return configuredUrl;
+  }
+  const url = new URL(configuredUrl);
+  if (url.hostname !== "localhost") {
+    return configuredUrl;
+  }
+  url.hostname = pageHostname;
+  // URL adds a "/" at the end; the paths in this file already start with one.
+  return url.toString().replace(/\/$/, "");
+}
+
+const API_URL = resolveApiUrl(
+  CONFIGURED_API_URL,
+  // `window` only exists in the browser, not while the server prepares a page.
+  typeof window === "undefined" ? null : window.location.hostname,
+);
 
 /** An error from the API, with a message that is safe to show the user. */
 export class ApiError extends Error {

@@ -123,11 +123,41 @@ export default function ReceiptUpload() {
         ) : (
           <>
             <p className="text-lg font-medium">
-              {isDragging ? "Drop the receipt here" : "Drag a receipt here, or click to choose a file"}
+              {isDragging ? (
+                "Drop the receipt here"
+              ) : (
+                <>
+                  {/* Nobody drags files on a phone, so small screens get shorter words. */}
+                  <span className="hidden md:inline">
+                    Drag a receipt here, or click to choose a file
+                  </span>
+                  <span className="md:hidden">Tap to choose a file</span>
+                </>
+              )}
             </p>
             <p className="mt-1 text-sm text-zinc-500">JPG, PNG or PDF, up to 10 MB</p>
           </>
         )}
+      </label>
+
+      {/* On a phone, capture="environment" makes this input open the back
+          camera instead of the file list. Computers ignore it and show the
+          usual file picker, so the button is only shown on small screens. */}
+      <label
+        className={
+          "mt-3 flex items-center justify-center rounded-md bg-zinc-900 px-4 py-3 text-sm font-medium text-white md:hidden " +
+          (isUploading ? "cursor-wait opacity-50" : "cursor-pointer")
+        }
+      >
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          disabled={isUploading}
+          onChange={handleInputChange}
+          className="sr-only"
+        />
+        Take a photo of a receipt
       </label>
 
       {status.state === "error" && (

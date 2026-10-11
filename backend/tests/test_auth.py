@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth import SESSION_COOKIE, hash_token
+from app.config import Settings
 from app.models import User, UserSession
 
 EMAIL = "sam@example.com"
@@ -40,6 +41,20 @@ def test_another_origin_is_not_allowed(client: TestClient):
     response = client.get("/auth/me", headers={"Origin": "http://evil.example"})
 
     assert "access-control-allow-origin" not in response.headers
+
+
+def test_only_this_computer_is_allowed_unless_a_phone_address_is_set():
+    settings = Settings(frontend_origin="http://localhost:3000", phone_origin="")
+
+    assert settings.allowed_origins == ["http://localhost:3000"]
+
+
+def test_a_phone_address_is_allowed_next_to_this_computer():
+    settings = Settings(
+        frontend_origin="http://localhost:3000", phone_origin="http://192.168.1.20:3000"
+    )
+
+    assert settings.allowed_origins == ["http://localhost:3000", "http://192.168.1.20:3000"]
 
 
 # --- register ---

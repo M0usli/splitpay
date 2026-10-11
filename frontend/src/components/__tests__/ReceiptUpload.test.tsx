@@ -82,3 +82,23 @@ test("shows the error when the upload itself fails", async () => {
 
   expect(await screen.findByRole("alert")).toHaveTextContent("Could not reach the backend.");
 });
+
+test("the photo button asks the phone for its back camera", () => {
+  render(<ReceiptUpload />);
+
+  const camera = screen.getByLabelText("Take a photo of a receipt");
+
+  expect(camera).toHaveAttribute("capture", "environment");
+  expect(camera).toHaveAttribute("accept", "image/*");
+});
+
+test("a photo from the camera is uploaded like any other file", async () => {
+  vi.mocked(uploadReceipt).mockResolvedValue(RECEIPT);
+  render(<ReceiptUpload />);
+
+  const photo = new File(["photo"], "image.jpg", { type: "image/jpeg" });
+  await userEvent.upload(screen.getByLabelText("Take a photo of a receipt"), photo);
+
+  expect(uploadReceipt).toHaveBeenCalledWith(photo);
+  expect(push).toHaveBeenCalledWith("/receipts/7");
+});

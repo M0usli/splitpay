@@ -11,6 +11,8 @@ type SharingFieldsProps = {
   onChange: (value: SharingValues) => void;
   /** Offer "By item". Off for things that have no items, like monthly rent. */
   allowByItem?: boolean;
+  /** The way to split that is chosen when sharing is turned on. */
+  startMode?: SplitMode;
 };
 
 const MODES: { mode: SplitMode; label: string }[] = [
@@ -31,13 +33,20 @@ export default function SharingFields({
   value,
   onChange,
   allowByItem = true,
+  startMode = "equal",
 }: SharingFieldsProps) {
   const modes = allowByItem ? MODES : MODES.filter(({ mode }) => mode !== "item");
   const allIds = members.map((member) => member.id);
 
   function toggleShared(isShared: boolean) {
-    // Turning sharing on starts with the simplest choice: everyone, equally.
-    onChange(isShared ? { isShared: true, mode: "equal", included: allIds, inputs: {} } : { ...value, isShared: false });
+    // Turning sharing on starts with everyone included. The way to split is
+    // "Equally" unless the form asks for another, such as "By item" for a
+    // receipt whose items were read.
+    onChange(
+      isShared
+        ? { isShared: true, mode: startMode, included: allIds, inputs: {} }
+        : { ...value, isShared: false },
+    );
   }
 
   function toggleMember(id: number, isIncluded: boolean) {
