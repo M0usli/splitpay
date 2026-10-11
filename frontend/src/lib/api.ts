@@ -15,6 +15,9 @@ export type ExpenseCreate = Schemas["ExpenseCreate"];
 export type ExpenseUpdate = Schemas["ExpenseUpdate"];
 // One person's part of a shared expense, as the API returns it.
 export type Share = Schemas["Share-Output"];
+// One receipt line and the members who share it.
+export type SplitItem = Schemas["SplitItem-Output"];
+export type SplitPreview = Schemas["SplitPreviewRead"];
 export type Receipt = Schemas["ReceiptRead"];
 export type ExtractedFields = Schemas["ExtractedFields"];
 export type ExtractedItem = Schemas["ExtractedItem"];
@@ -153,6 +156,18 @@ export function listSharedExpenses(): Promise<SharedExpense[]> {
 /** Each member's position and the payments that would settle the household. */
 export function getBalance(): Promise<Balance> {
   return request("/household/balance");
+}
+
+/** What each member would pay for these items. Nothing is saved. */
+export function previewItemSplit(
+  items: SplitItem[],
+  tax: string | null,
+  total: string,
+): Promise<SplitPreview> {
+  return request(
+    "/household/split-preview",
+    jsonRequest("POST", { split_items: items, tax, total }),
+  );
 }
 
 export function listSettlements(): Promise<Settlement[]> {

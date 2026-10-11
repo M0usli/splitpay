@@ -9,6 +9,12 @@ import type { HouseholdInfo } from "@/components/useHousehold";
 // null (no household); the sharing tests at the end set one.
 const household = vi.hoisted(() => ({ info: null as HouseholdInfo | null }));
 vi.mock("@/components/useHousehold", () => ({ useHousehold: () => household.info }));
+// The item split's summary asks the backend. Here it never answers, so these
+// tests stay about the form itself (the summary has its own tests).
+vi.mock("@/lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api")>()),
+  previewItemSplit: vi.fn(() => new Promise(() => {})),
+}));
 
 const WITH_ROOMMATE: HouseholdInfo = {
   myId: 1,
@@ -92,6 +98,7 @@ test("submits what the user typed, with empty optional fields sent as null", asy
     notes: null,
     is_shared: false,
     shares: null,
+    split_items: null,
   });
 });
 
@@ -131,4 +138,80 @@ test("shows the error and lets the user try again when saving fails", async () =
 
   expect(await screen.findByRole("alert")).toHaveTextContent("Could not reach the backend.");
   expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+});
+
+test("a receipt split by item sends the items and lets the server work out the parts", async () => {
+  household.info = WITH_ROOMMATE;
+  const onSubmit = vi.fn(() => Promise.resolve());
+  render(
+    <ExpenseForm
+      submitLabel="Save"
+      onSubmit={onSubmit}
+      initialItems={[
+        { name: "MILK", quantity: null, price: "6.49", is_taxable: false },
+        { name: "DISH SOAP", quantity: null, price: "3.49", is_taxable: true },
+      ]}
+    />,
+  );
+
+  await fillRequiredFields("10.43");
+  await userEvent.click(screen.getByLabelText("Share this expense with my household"));
+  await userEvent.click(screen.getByLabelText("By item"));
+  // The soap is only the roommate's.
+  await userEvent.click(screen.getByLabelText("Me shares item 2"));
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  expect(onSubmit).toHaveBeenCalledWith(
+    expect.objectContaining({
+      is_shared: true,
+      shares: null,
+      split_items: [
+        { name: "MILK", price: "6.49", is_taxable: false, shared_by: [1, 2] },
+        { name: "DISH SOAP", price: "3.49", is_taxable: true, shared_by: [2] },
+      ],
+    }),
+  );
+});
+
+test("an item with nobody chosen stops the form and says which item", async () => {
+  household.info = WITH_ROOMMATE;
+  const onSubmit = vi.fn(() => Promise.resolve());
+  render(
+    <ExpenseForm
+      submitLabel="Save"
+      onSubmit={onSubmit}
+      initialItems={[{ name: "MILK", quantity: null, price: "6.49", is_taxable: false }]}
+    />,
+  );
+
+  await fillRequiredFields("6.49");
+  await userEvent.click(screen.getByLabelText("Share this expense with my household"));
+  await userEvent.click(screen.getByLabelText("By item"));
+  await userEvent.click(screen.getByLabelText("Me shares item 1"));
+  await userEvent.click(screen.getByLabelText("alex shares item 1"));
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  expect(screen.getByRole("alert")).toHaveTextContent('Choose who "MILK" is for.');
+  expect(onSubmit).not.toHaveBeenCalled();
+});
+
+test("a saved item split reopens with the same people ticked", () => {
+  household.info = WITH_ROOMMATE;
+  render(
+    <ExpenseForm
+      submitLabel="Save"
+      onSubmit={vi.fn()}
+      initialValues={{
+        total: "6.49",
+        is_shared: true,
+        shares: [{ user_id: 2, amount: "6.49" }],
+        split_items: [{ name: "MILK", price: "6.49", is_taxable: false, shared_by: [2] }],
+      }}
+    />,
+  );
+
+  expect(screen.getByLabelText("By item")).toBeChecked();
+  expect(screen.getByLabelText("Name of item 1")).toHaveValue("MILK");
+  expect(screen.getByLabelText("Me shares item 1")).not.toBeChecked();
+  expect(screen.getByLabelText("alex shares item 1")).toBeChecked();
 });

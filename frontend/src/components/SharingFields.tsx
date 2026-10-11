@@ -15,6 +15,7 @@ const MODES: { mode: SplitMode; label: string }[] = [
   { mode: "equal", label: "Equally" },
   { mode: "percent", label: "By percent" },
   { mode: "amount", label: "By amount" },
+  { mode: "item", label: "By item" },
 ];
 
 const smallInputClass =
@@ -70,7 +71,9 @@ export default function SharingFields({ members, myId, value, onChange }: Sharin
             ))}
           </div>
 
-          <ul className="space-y-2">
+          {/* By item, people are chosen per item in the editor below the form's
+              sharing section, so the list of people is not shown here. */}
+          <ul className="space-y-2" hidden={value.mode === "item"}>
             {members.map((member) => {
               const isIncluded = value.included.includes(member.id);
               const name = member.id === myId ? `Me (${member.email})` : member.email;
@@ -106,6 +109,7 @@ export default function SharingFields({ members, myId, value, onChange }: Sharin
             {value.mode === "equal" && "The total is divided equally among the people ticked."}
             {value.mode === "percent" && "The percents must add up to 100."}
             {value.mode === "amount" && "The amounts must add up to the total."}
+            {value.mode === "item" && "Choose who each item is for. Tax follows the taxed items."}
           </p>
         </div>
       )}

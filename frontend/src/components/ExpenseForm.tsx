@@ -2,9 +2,18 @@
 
 import { useState, type FormEvent } from "react";
 
+import ItemSplitEditor from "@/components/ItemSplitEditor";
 import SharingFields from "@/components/SharingFields";
 import { useHousehold } from "@/components/useHousehold";
-import { CATEGORIES, type Category, type ExpenseUpdate, type Share } from "@/lib/api";
+import {
+  CATEGORIES,
+  type Category,
+  type ExpenseUpdate,
+  type ExtractedItem,
+  type Share,
+  type SplitItem,
+} from "@/lib/api";
+import { rowsFromExtracted, rowsFromSaved, toSplitItems, type ItemRow } from "@/lib/itemSplit";
 import { buildShares, sharingFromExpense, type SharingValues } from "@/lib/split";
 
 // What the inputs hold while the user is typing. Inputs always produce
@@ -22,6 +31,8 @@ export type ExpenseFormValues = {
   // starts from these. null shares mean "split equally".
   is_shared: boolean;
   shares: Share[] | null;
+  // The saved item-by-item choices, when the expense was split that way.
+  split_items: SplitItem[] | null;
 };
 
 const EMPTY_VALUES: ExpenseFormValues = {
@@ -35,12 +46,15 @@ const EMPTY_VALUES: ExpenseFormValues = {
   notes: "",
   is_shared: false,
   shares: null,
+  split_items: null,
 };
 
 type ExpenseFormProps = {
   submitLabel: string;
   /** Values to start with, e.g. what the AI read from a receipt. Missing ones start empty. */
   initialValues?: Partial<ExpenseFormValues>;
+  /** The lines the AI read from the receipt, offered for an item-by-item split. */
+  initialItems?: ExtractedItem[];
   /** Called with the cleaned-up values. Throw an Error to show its message. */
   onSubmit: (expense: ExpenseUpdate) => Promise<void>;
 };
@@ -59,6 +73,7 @@ function emptyToNull(value: string): string | null {
 export default function ExpenseForm({
   submitLabel,
   initialValues,
+  initialItems,
   onSubmit,
 }: ExpenseFormProps) {
   // The starting values are only read once, when the form first appears.
@@ -71,8 +86,22 @@ export default function ExpenseForm({
   const members = householdInfo?.household.members ?? [];
   const canShare = householdInfo !== null && members.length > 1;
   const [sharing, setSharing] = useState<SharingValues>(() =>
-    sharingFromExpense(values.is_shared, values.shares ?? []),
+    sharingFromExpense(values.is_shared, values.shares ?? [], values.split_items !== null),
   );
+  // The rows of the item-by-item split. They start from a saved split, or
+  // are filled from the receipt's items when "By item" is first chosen.
+  const [itemRows, setItemRows] = useState<ItemRow[]>(() =>
+    values.split_items === null ? [] : rowsFromSaved(values.split_items),
+  );
+  const splitsByItem = sharing.isShared && sharing.mode === "item";
+
+  function handleSharingChange(next: SharingValues) {
+    if (next.isShared && next.mode === "item" && itemRows.length === 0) {
+      const memberIds = members.map((member) => member.id);
+      setItemRows(rowsFromExtracted(initialItems ?? [], memberIds));
+    }
+    setSharing(next);
+  }
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -90,7 +119,18 @@ export default function ExpenseForm({
     // Without a household the saved sharing is passed on unchanged.
     let isShared = values.is_shared;
     let shares = values.shares;
-    if (canShare) {
+    let splitItems = values.split_items;
+    if (canShare && splitsByItem) {
+      const result = toSplitItems(itemRows);
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      isShared = true;
+      shares = null;
+      splitItems = result.items;
+    } else if (canShare) {
+      splitItems = null;
       const memberIds = members.map((member) => member.id);
       const result = buildShares(sharing, values.total, memberIds, householdInfo.myId);
       if (!result.ok) {
@@ -115,6 +155,7 @@ export default function ExpenseForm({
         notes: emptyToNull(values.notes),
         is_shared: isShared,
         shares,
+        split_items: splitItems,
       });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Something went wrong");
@@ -240,7 +281,19 @@ export default function ExpenseForm({
           members={members}
           myId={householdInfo.myId}
           value={sharing}
-          onChange={setSharing}
+          onChange={handleSharingChange}
+        />
+      )}
+
+      {canShare && splitsByItem && (
+        <ItemSplitEditor
+          members={members}
+          myId={householdInfo.myId}
+          rows={itemRows}
+          onChange={setItemRows}
+          tax={values.tax}
+          total={values.total}
+          currency={values.currency}
         />
       )}
 

@@ -1,4 +1,5 @@
 import secrets
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -18,11 +19,14 @@ from app.schemas.household import (
     MemberBalance,
     MemberRead,
     Payment,
+    PersonSplitRead,
     SettlementCreate,
     SettlementRead,
     SharedExpenseRead,
+    SplitPreviewRead,
+    SplitPreviewRequest,
 )
-from app.splitting import net_balances, plan_payments
+from app.splitting import ItemLine, net_balances, plan_payments, split_by_items
 
 router = APIRouter(prefix="/household", tags=["household"])
 
@@ -180,6 +184,48 @@ def get_balance(
             Payment(owed_by=members[owed_by], owed_to=members[owed_to], amount=amount)
             for owed_by, owed_to, amount in plan_payments(balances)
         ],
+    )
+
+
+@router.post("/split-preview", response_model=SplitPreviewRead)
+def preview_item_split(
+    payload: SplitPreviewRequest, db: DbSession, user: CurrentUser
+) -> SplitPreviewRead:
+    """Work out an item-by-item split without saving anything.
+
+    The page calls this while the user ticks who each item is for, so the
+    arithmetic lives in one place (app/splitting.py) and what is shown is
+    exactly what saving the expense will store.
+    """
+    household = get_household_or_404(db, user)
+    members = {member.id: member for member in get_members(db, household.id)}
+    lines = [
+        ItemLine(price=item.price, is_taxable=item.is_taxable, shared_by=item.shared_by)
+        for item in payload.split_items
+    ]
+    if any(not set(line.shared_by) <= set(members) for line in lines):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Items can only be shared with members of your household",
+        )
+    tax = payload.tax or Decimal("0")
+    try:
+        people = split_by_items(lines, tax, payload.total, user.id)
+    except ValueError as error:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
+
+    return SplitPreviewRead(
+        people=[
+            PersonSplitRead(
+                member=MemberRead.model_validate(members[person]),
+                items=split.items,
+                tax=split.tax,
+                adjustment=split.adjustment,
+                amount=split.amount,
+            )
+            for person, split in sorted(people.items())
+        ],
+        difference=payload.total - sum(line.price for line in lines) - tax,
     )
 
 

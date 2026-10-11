@@ -20,6 +20,17 @@ class Share(BaseModel):
     amount: Money
 
 
+class SplitItem(BaseModel):
+    """One line of a receipt and the household members who share it."""
+
+    name: str = Field(min_length=1, max_length=200)
+    # Negative for a discount.
+    price: Decimal = Field(max_digits=10, decimal_places=2)
+    is_taxable: bool = False
+    # The ids of the people this line is for. It is split equally among them.
+    shared_by: list[int] = Field(min_length=1)
+
+
 class ExpenseBase(BaseModel):
     """Fields the user can set on an expense."""
 
@@ -41,10 +52,13 @@ class ExpenseWrite(ExpenseBase):
     # Each person's part. Leave it out to split the total equally among all
     # members of the household. The parts must add up to the total.
     shares: list[Share] | None = None
+    # Or split a receipt item by item: each line says who it is for, and the
+    # server works out the parts (including tax). When given, `shares` is ignored.
+    split_items: list[SplitItem] | None = Field(default=None, max_length=300)
 
     @model_validator(mode="after")
     def shares_add_up_to_the_total(self) -> Self:
-        if not self.is_shared or self.shares is None:
+        if not self.is_shared or self.shares is None or self.split_items is not None:
             return self
         user_ids = [share.user_id for share in self.shares]
         if len(user_ids) != len(set(user_ids)):
@@ -81,3 +95,5 @@ class ExpenseRead(ExpenseBase):
     is_shared: bool
     # Empty for a private expense.
     shares: list[Share]
+    # The item-by-item choices, when the expense was split that way.
+    split_items: list[SplitItem] | None
