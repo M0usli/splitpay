@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.errors import register_error_handlers
-from app.routers import expenses, health, receipts, stats
+from app.routers import auth, expenses, health, receipts, stats
 
 settings = get_settings()
 
@@ -24,6 +24,7 @@ app.add_middleware(
 register_error_handlers(app)
 
 app.include_router(health.router)
+app.include_router(auth.router)
 app.include_router(expenses.router)
 app.include_router(receipts.router)
 app.include_router(stats.router)

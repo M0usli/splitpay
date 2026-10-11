@@ -130,6 +130,10 @@ the AI extraction: receipts are saved and you can type the details by hand.
 | GET, PUT, DELETE | `/expenses/{id}` | Read, change or delete one expense |
 | GET | `/expenses/export.csv` | Download the filtered expenses as CSV |
 | GET | `/stats/summary` | Totals for the dashboard |
+| POST | `/auth/register` | Create an account and log it in |
+| POST | `/auth/login` | Log in; the session token comes back in an HttpOnly cookie |
+| POST | `/auth/logout` | End the current session |
+| GET | `/auth/me` | The logged-in user, or 401 |
 
 The frontend's TypeScript types are generated from the backend's OpenAPI
 schema (`npm run generate:api`), so the two sides cannot drift apart silently.
@@ -201,6 +205,7 @@ receipt-tracker/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py         creates the FastAPI app
+│   │   ├── auth.py         password hashing, login sessions, current user
 │   │   ├── routers/        the HTTP endpoints
 │   │   ├── schemas/        Pydantic request and response shapes
 │   │   ├── models/         SQLAlchemy database tables
@@ -232,6 +237,10 @@ receipt-tracker/
   user can retry or type the details in by hand.
 - **`was_edited` is decided by the server**, by comparing what was saved with
   what the AI extracted. It shows how often the AI needed correcting.
+- **Passwords and session tokens are stored only as hashes.** Passwords use
+  Argon2. A login is a random token in an HttpOnly cookie, and the database
+  keeps its SHA-256, so logging out really ends the session and a leaked
+  database cannot be used to log in.
 - **Secrets stay out of the repository.** The API key and model name come
   from environment variables; `.env` is gitignored.
 
