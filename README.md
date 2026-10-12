@@ -1,12 +1,16 @@
 # Receipt Tracker
 
-<!-- After pushing to GitHub, replace YOUR-USERNAME below and the badge shows whether the checks pass. -->
-[![CI](https://github.com/YOUR-USERNAME/receipt-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR-USERNAME/receipt-tracker/actions/workflows/ci.yml)
+[![CI](https://github.com/M0usli/receipt-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/M0usli/receipt-tracker/actions/workflows/ci.yml)
 
-A web app that turns a photo of a receipt into a tracked expense. Upload a
-receipt, the app reads it with OCR, an LLM pulls out the merchant, date, tax
-and total, you check the result, and it is saved to a searchable list with a
-spending dashboard.
+A web app that turns a photo of a receipt into a tracked expense, and splits
+shared costs between roommates. Upload a receipt, the app reads it with OCR,
+an LLM pulls out the merchant, date, totals and every item, you check the
+result, and it is saved to a searchable list with a spending dashboard. A
+grocery receipt can be split item by item: tick who each item is for and the
+app works out what everyone owes, tax included.
+
+It runs on your own computer with Docker. See [Hosting](#hosting) for why
+there is no live link, and [docs/DEMO.md](docs/DEMO.md) for a walk-through.
 
 ## Screenshots
 
@@ -41,6 +45,20 @@ _Screenshots to add: `docs/screenshots/upload.png`, `review.png`, `expenses.png`
   trend and top merchants.
 - **Evaluation script** that measures extraction accuracy on a labelled set
   of receipts, with and without image preprocessing.
+
+Added in version 2:
+
+- **Accounts.** Sign up and log in; each person sees only their own
+  receipts and expenses.
+- **Households and split bills.** Roommates join a household with an invite
+  code. An expense can be shared equally, by percent, by amount, or item by
+  item from a receipt. The Split bill page shows who owes whom and records
+  pay-backs.
+- **Recurring costs** such as rent, added to the expenses every month.
+- **Phone use.** The pages fit a phone, the upload page can open the camera,
+  and the site can be added to the home screen.
+- **Bank import (sandbox).** Connect a pretend bank through Plaid's sandbox
+  and turn its transactions into expenses after reviewing them.
 
 ## How it works
 
@@ -347,9 +365,37 @@ receipt-tracker/
 - **Secrets stay out of the repository.** The API key and model name come
   from environment variables; `.env` is gitignored.
 
+## Hosting
+
+This project is not hosted, on purpose. The goal was hosting at no cost, and
+a free setup is possible (a static-friendly frontend host, a free container
+host for the backend and a free Postgres), but it fits this app badly:
+
+- **OCR needs a real server.** The backend runs Tesseract and OpenCV in a
+  Docker container. Free container hosts give it little memory and put it to
+  sleep when idle, so the first request after a pause can take up to a
+  minute.
+- **Uploaded receipts would be lost.** Free containers have no permanent
+  disk. Keeping the receipt images would need a separate storage service.
+- **A public site spends the owner's AI credit.** Every scan calls a paid
+  API. Anyone who signed up could run up the bill, so a public deployment
+  first needs sign-up to be closed or limited.
+- **Logins need more work across two sites.** The session cookie is only
+  sent to the same site. With the frontend and backend on different hosts,
+  the frontend has to forward API calls so both appear as one site.
+- **Receipts are personal.** They carry card digits and addresses.
+
+None of these is a blocker, and the work to become deploy-ready is tracked
+in [issue #22](https://github.com/M0usli/receipt-tracker/issues/22). Until
+then, [docs/DEMO.md](docs/DEMO.md) shows what the
+app does.
+
 ## Known limitations
 
-- Single user, no login.
+- A household's balance stops counting someone who leaves it.
+- Recurring costs are made when the app is opened, not by a scheduler.
+- The bank connection is sandbox only, and its imports are in US dollars.
+- Item reading depends on OCR quality; a crumpled receipt needs corrections.
 - Saving the same receipt twice creates two expenses.
 - The dashboard totals one currency at a time (CAD by default).
 - OCR is set up for English, and HEIC photos must be converted to JPG first.
