@@ -14,6 +14,14 @@ class Category(StrEnum):
     OTHER = "Other"
 
 
+class BankTransactionStatus(StrEnum):
+    """What the user decided about a transaction imported from a bank."""
+
+    NEW = "new"  # waiting for a decision
+    ADDED = "added"  # made into an expense
+    IGNORED = "ignored"  # not something to track
+
+
 class ReceiptStatus(StrEnum):
     PENDING = "pending"
     EXTRACTED = "extracted"

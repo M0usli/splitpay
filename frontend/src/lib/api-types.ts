@@ -516,6 +516,167 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/bank/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Status */
+        get: operations["get_status_bank_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bank/link-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Link Token
+         * @description Step 1 of connecting a bank: get the token that opens Plaid's window.
+         */
+        post: operations["create_link_token_bank_link_token_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bank/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Connection
+         * @description Step 2: swap the browser's one-time token for the access token and keep it.
+         */
+        post: operations["create_connection_bank_connections_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bank/connections/{connection_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Connection
+         * @description Forget a bank. Its imported transactions go too; expenses made from them stay.
+         */
+        delete: operations["delete_connection_bank_connections__connection_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bank/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync Transactions
+         * @description Import what is new at every connected bank.
+         *
+         *     Safe to call again: the bookmark Plaid gives (the cursor) means only
+         *     changes since the last import come back, and even if one came back
+         *     twice the database would refuse the duplicate.
+         */
+        post: operations["sync_transactions_bank_sync_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bank/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Transactions
+         * @description Imported transactions, newest first. By default the ones waiting for review.
+         */
+        get: operations["list_transactions_bank_transactions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bank/transactions/{transaction_id}/add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Transaction
+         * @description Make an expense from an imported transaction.
+         */
+        post: operations["add_transaction_bank_transactions__transaction_id__add_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bank/transactions/{transaction_id}/ignore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ignore Transaction
+         * @description Hide a transaction that is not an expense to track (a transfer, for example).
+         */
+        post: operations["ignore_transaction_bank_transactions__transaction_id__ignore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -537,6 +698,79 @@ export interface components {
             /** Payments */
             payments: components["schemas"]["Payment"][];
         };
+        /**
+         * BankConnectionCreate
+         * @description Request body after the user finished choosing a bank in Plaid's window.
+         */
+        BankConnectionCreate: {
+            /** Public Token */
+            public_token: string;
+            /** Institution Name */
+            institution_name: string;
+        };
+        /**
+         * BankConnectionRead
+         * @description A connected bank. The access token is never included.
+         */
+        BankConnectionRead: {
+            /** Id */
+            id: number;
+            /** Institution Name */
+            institution_name: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * BankStatus
+         * @description Whether the bank feature is set up, and the user's connected banks.
+         */
+        BankStatus: {
+            /** Configured */
+            configured: boolean;
+            /** Connections */
+            connections: components["schemas"]["BankConnectionRead"][];
+        };
+        /**
+         * BankTransactionAdd
+         * @description Request body for turning an imported transaction into an expense.
+         */
+        BankTransactionAdd: {
+            category?: components["schemas"]["Category"] | null;
+        };
+        /**
+         * BankTransactionRead
+         * @description An imported transaction, as shown in the review list.
+         */
+        BankTransactionRead: {
+            /** Id */
+            id: number;
+            /** Connection Id */
+            connection_id: number;
+            /** Name */
+            name: string;
+            /** Amount */
+            amount: string;
+            /** Currency */
+            currency: string;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            category: components["schemas"]["Category"];
+            status: components["schemas"]["BankTransactionStatus"];
+            /** Expense Id */
+            expense_id: number | null;
+        };
+        /**
+         * BankTransactionStatus
+         * @description What the user decided about a transaction imported from a bank.
+         * @enum {string}
+         */
+        BankTransactionStatus: "new" | "added" | "ignored";
         /** Body_upload_receipt_receipts_post */
         Body_upload_receipt_receipts_post: {
             /** File */
@@ -774,6 +1008,14 @@ export interface components {
             invite_code: string;
             /** Members */
             members: components["schemas"]["MemberRead"][];
+        };
+        /**
+         * LinkToken
+         * @description The short-lived token that opens Plaid's "choose your bank" window.
+         */
+        LinkToken: {
+            /** Link Token */
+            link_token: string;
         };
         /**
          * MemberBalance
@@ -1113,6 +1355,16 @@ export interface components {
             monthly_totals: components["schemas"]["MonthlyTotal"][];
             /** Top Merchants */
             top_merchants: components["schemas"]["MerchantTotal"][];
+        };
+        /**
+         * SyncSummary
+         * @description What an import did.
+         */
+        SyncSummary: {
+            /** Imported */
+            imported: number;
+            /** Removed */
+            removed: number;
         };
         /**
          * UserCreate
@@ -2181,6 +2433,268 @@ export interface operations {
             };
         };
     };
+    get_status_bank_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_link_token_bank_link_token_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkToken"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_connection_bank_connections_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BankConnectionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankConnectionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_connection_bank_connections__connection_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                connection_id: number;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_transactions_bank_sync_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_transactions_bank_transactions_get: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["BankTransactionStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankTransactionRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_transaction_bank_transactions__transaction_id__add_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transaction_id: number;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BankTransactionAdd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ignore_transaction_bank_transactions__transaction_id__ignore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transaction_id: number;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankTransactionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
 }
 type FlattenedDeepRequired<T> = {
     [K in keyof T]-?: FlattenedDeepRequired<T[K] extends unknown[] | undefined | null ? Extract<T[K], unknown[]>[number] : T[K]>;
@@ -2190,6 +2704,7 @@ type ReadonlyArray<T> = [
 ] extends [
     unknown[]
 ] ? Readonly<Exclude<T, undefined>> : Readonly<Exclude<T, undefined>[]>;
+export const bankTransactionStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BankTransactionStatus"]> = ["new", "added", "ignored"];
 export const categoryValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Category"]> = ["Groceries", "Dining", "Transport", "Shopping", "Entertainment", "Bills & Utilities", "Health", "Other"];
 export const healthResponseDatabaseValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["HealthResponse"]["database"]> = ["ok", "unavailable"];
 export const receiptStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ReceiptStatus"]> = ["pending", "extracted", "failed"];
