@@ -69,12 +69,12 @@ Added in version 3 (in progress):
 - **Request money.** Ask another user for an amount. They see it on their
   Wallet page with Pay and Decline buttons; the person who asked can cancel
   it while it is waiting.
-- **Identity check before sending (simulated KYC).** A new user can add and
-  receive money, but sending, paying a request, paying a debt and paying a
-  bill are refused until they pass a short identity check: name, date of
-  birth, and a document. The check is a simulation with two rules (18 or
-  older; a document number ending in 0000 is always rejected, to show that
-  path). No real document is ever asked for.
+- **Identity check and sending limits (simulated KYC).** A new user can
+  send up to $50 a day. Passing a short identity check (name, date of birth,
+  a document) raises that to $2,000 a day. The limit covers every way of
+  paying: sends, paid requests, split-bill payments and bills. The check is
+  a simulation with two rules (18 or older; a document number ending in 0000
+  is always rejected, to show that path). No real document is ever asked for.
 - **Pay bills.** Save a company (electricity, internet, mobile; all made
   up) with your account number, pay it from the wallet, and get a receipt
   with a reference number for every payment.
@@ -232,6 +232,7 @@ with pretend transactions. The app cannot be pointed at real accounts.
 | GET | `/wallet` | The logged-in user's wallet balance (pretend money) |
 | POST | `/wallet/top-up` | Add pretend money to the wallet |
 | POST | `/wallet/send` | Send money to another user by email |
+| GET | `/wallet/limits` | The daily sending limit and how much is left today |
 | GET | `/wallet/transactions` | Money in and out, newest first |
 | POST | `/wallet/requests` | Ask another user for money; nothing moves yet |
 | GET | `/wallet/requests` | Requests the user made or received, newest first |
@@ -325,7 +326,8 @@ receipt-tracker/
 │   │   ├── bank/           the bank-data interface and the Plaid sandbox client
 │   │   ├── wallet.py       the ledger: moving pretend money between wallets
 │   │   ├── billers.py      the made-up companies a bill can be paid to
-│   │   ├── identity.py     the identity check and the VerifiedUser rule for sending money
+│   │   ├── identity.py     the identity check (simulated KYC)
+│   │   ├── spending.py     the one function every payment goes through, and the daily limits
 │   │   ├── routers/        the HTTP endpoints
 │   │   ├── schemas/        Pydantic request and response shapes
 │   │   ├── models/         SQLAlchemy database tables
@@ -401,12 +403,12 @@ receipt-tracker/
   ends as paid, declined or cancelled. The backend locks the request's row
   while it changes, so Pay tapped on two devices at the same moment moves
   the money once, and a finished request cannot change again.
-- **The identity rule lives on the server, in one place.** The four
-  endpoints that take money out of a wallet ask for a `VerifiedUser`
-  instead of a `CurrentUser`. That one dependency answers 403 for anyone
-  not verified, so the rule cannot be skipped by calling the API directly,
-  and a new paying endpoint gets it by using the same type. The page also
-  explains it up front, but that is only for convenience.
+- **Every payment goes through one function.** A send, a paid request, a
+  split-bill payment and a bill all call `spend` in `app/spending.py`. It
+  looks up the user's daily limit (from the identity check) and passes it to
+  the ledger, which checks it under the same row lock as the balance, so two
+  payments at the same moment cannot both slip under the limit. The page
+  shows the limit too, but the server is what enforces it.
 - **Only what is needed is kept.** The document number is used for the
   check and then dropped; the database stores its last 4 characters. A real
   wallet would hand documents to a specialist provider and would also check

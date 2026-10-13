@@ -10,7 +10,6 @@ from app.auth import CurrentUser
 from app.database import DbSession
 from app.enums import TransferKind
 from app.extraction.schemas import DEFAULT_CURRENCY
-from app.identity import VerifiedUser
 from app.models import Expense, Household, Settlement, User
 from app.schemas.expense import ExpenseRead
 from app.schemas.household import (
@@ -29,8 +28,9 @@ from app.schemas.household import (
     SplitPreviewRequest,
     WalletPayment,
 )
+from app.spending import spend
 from app.splitting import ItemLine, net_balances, plan_payments, split_by_items
-from app.wallet import InsufficientFunds, get_or_create_wallet, move_money
+from app.wallet import get_or_create_wallet
 
 router = APIRouter(prefix="/household", tags=["household"])
 
@@ -288,7 +288,7 @@ def record_settlement(
 
 
 @router.post("/pay", response_model=SettlementRead, status_code=status.HTTP_201_CREATED)
-def pay_from_wallet(payload: WalletPayment, db: DbSession, user: VerifiedUser) -> SettlementRead:
+def pay_from_wallet(payload: WalletPayment, db: DbSession, user: CurrentUser) -> SettlementRead:
     """Pay a housemate from the wallet and record the settlement, together.
 
     Both changes are in one database transaction: the money moves and the
@@ -305,18 +305,15 @@ def pay_from_wallet(payload: WalletPayment, db: DbSession, user: VerifiedUser) -
 
     wallet = get_or_create_wallet(db, user)
     recipient_wallet = get_or_create_wallet(db, members[payload.to_user_id])
-    try:
-        transfer = move_money(
-            db,
-            kind=TransferKind.SETTLEMENT,
-            source=wallet,
-            destination=recipient_wallet,
-            amount=payload.amount,
-            idempotency_key=payload.idempotency_key,
-            note="Split bill",
-        )
-    except InsufficientFunds as error:
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(error)) from error
+    transfer = spend(
+        db,
+        user,
+        kind=TransferKind.SETTLEMENT,
+        destination=recipient_wallet,
+        amount=payload.amount,
+        idempotency_key=payload.idempotency_key,
+        note="Split bill",
+    )
 
     # A repeat of the same request (a double tap) finds the transfer already
     # made, and the settlement that goes with it.

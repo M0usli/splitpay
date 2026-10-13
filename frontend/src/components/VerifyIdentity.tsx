@@ -146,7 +146,7 @@ export default function VerifyIdentity() {
         <p role="status" className="text-center text-lg font-semibold text-green-700">
           ✓ Your identity is verified
         </p>
-        <p className="mt-1 text-center text-sm text-zinc-600">You can send money and pay bills.</p>
+        <p className="mt-1 text-center text-sm text-zinc-600">Your daily sending limit is now higher.</p>
         <dl className="mt-4 divide-y divide-zinc-100">
           <SummaryLine label="Name" value={identity.full_name ?? ""} />
           <SummaryLine

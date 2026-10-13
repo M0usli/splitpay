@@ -10,8 +10,11 @@ The rules that keep the money right:
    locked while the balance is checked and the transfer is written, so two
    sends at the same moment cannot both spend the same money.
 4. A request that arrives twice moves money once (the idempotency key).
+5. A wallet can have a daily sending limit. It is checked under the same
+   lock as the balance, so two sends at once cannot both slip under it.
 """
 
+import datetime
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -30,6 +33,15 @@ class WalletError(Exception):
 
 class InsufficientFunds(WalletError):
     """The sender does not have enough money."""
+
+
+class LimitExceeded(WalletError):
+    """The transfer would take the sender over their daily limit."""
+
+    def __init__(self, remaining: Decimal) -> None:
+        super().__init__("This is more than the daily sending limit allows.")
+        # How much could still be sent today.
+        self.remaining = remaining
 
 
 def get_or_create_wallet(db: Session, user: User | None) -> Wallet:
@@ -68,6 +80,16 @@ def get_balance(db: Session, wallet: Wallet) -> Decimal:
     return Decimal(money_in) - Decimal(money_out)
 
 
+def sent_since(db: Session, wallet: Wallet, since: datetime.datetime) -> Decimal:
+    """Everything that left the wallet at or after `since`."""
+    total = db.scalar(
+        select(func.coalesce(func.sum(WalletTransfer.amount), 0))
+        .where(WalletTransfer.from_wallet_id == wallet.id)
+        .where(WalletTransfer.created_at >= since)
+    )
+    return Decimal(total)
+
+
 def find_transfer(db: Session, idempotency_key: str) -> WalletTransfer | None:
     return db.scalar(
         select(WalletTransfer).where(WalletTransfer.idempotency_key == idempotency_key)
@@ -84,6 +106,8 @@ def move_money(
     idempotency_key: str,
     note: str | None = None,
     allow_overdraft: bool = False,
+    daily_limit: Decimal | None = None,
+    day_start: datetime.datetime | None = None,
 ) -> WalletTransfer:
     """Move `amount` from `source` to `destination` and return the ledger row.
 
@@ -92,6 +116,9 @@ def move_money(
 
     `allow_overdraft` is only for the outside-world wallet, which is allowed
     to go below zero: its negative balance is the total ever topped up.
+
+    With `daily_limit`, the transfer is refused if it would take what the
+    wallet has sent since `day_start` over that limit.
     """
     # Lock the wallet the money leaves. A second request spending from the
     # same wallet waits here until this one commits, then sees the new balance.
@@ -105,6 +132,11 @@ def move_money(
 
     if not allow_overdraft and get_balance(db, source) < amount:
         raise InsufficientFunds("You do not have enough money in your wallet.")
+
+    if daily_limit is not None and day_start is not None:
+        remaining = daily_limit - sent_since(db, source, day_start)
+        if amount > remaining:
+            raise LimitExceeded(max(remaining, ZERO))
 
     transfer = WalletTransfer(
         kind=kind,

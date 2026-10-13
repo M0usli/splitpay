@@ -5,16 +5,18 @@ from sqlalchemy.orm import Session
 from app.auth import CurrentUser
 from app.database import DbSession
 from app.enums import TransferKind
-from app.identity import VerifiedUser
+from app.identity import is_verified
 from app.models import User, Wallet, WalletTransfer
 from app.schemas.wallet import (
+    LimitsRead,
     SendRequest,
     TopUpRequest,
     TransactionRead,
     TransferResult,
     WalletRead,
 )
-from app.wallet import InsufficientFunds, get_balance, get_or_create_wallet, move_money
+from app.spending import daily_limit_for, remaining_today, spend
+from app.wallet import get_balance, get_or_create_wallet, move_money
 
 router = APIRouter(prefix="/wallet", tags=["wallet"])
 
@@ -67,6 +69,21 @@ def get_wallet(db: DbSession, user: CurrentUser) -> WalletRead:
     return WalletRead(balance=balance, currency=wallet.currency)
 
 
+@router.get("/limits", response_model=LimitsRead)
+def get_limits(db: DbSession, user: CurrentUser) -> LimitsRead:
+    """The user's daily sending limit and what is left of it today."""
+    wallet = get_or_create_wallet(db, user)
+    daily_limit = daily_limit_for(db, user)
+    remaining = remaining_today(db, user, wallet)
+    db.commit()  # keeps the wallet if it was just made
+    return LimitsRead(
+        level="verified" if is_verified(db, user) else "unverified",
+        daily_limit=daily_limit,
+        sent_today=daily_limit - remaining,
+        remaining=remaining,
+    )
+
+
 @router.post("/top-up", response_model=TransferResult)
 def top_up(payload: TopUpRequest, db: DbSession, user: CurrentUser) -> TransferResult:
     """Add pretend money. It comes out of the outside-world wallet."""
@@ -90,7 +107,7 @@ def top_up(payload: TopUpRequest, db: DbSession, user: CurrentUser) -> TransferR
 
 
 @router.post("/send", response_model=TransferResult)
-def send_money(payload: SendRequest, db: DbSession, user: VerifiedUser) -> TransferResult:
+def send_money(payload: SendRequest, db: DbSession, user: CurrentUser) -> TransferResult:
     """Send money to another user, found by their email."""
     if payload.to_email == user.email:
         raise HTTPException(
@@ -102,19 +119,15 @@ def send_money(payload: SendRequest, db: DbSession, user: VerifiedUser) -> Trans
 
     wallet = get_or_create_wallet(db, user)
     recipient_wallet = get_or_create_wallet(db, recipient)
-    try:
-        transfer = move_money(
-            db,
-            kind=TransferKind.SEND,
-            source=wallet,
-            destination=recipient_wallet,
-            amount=payload.amount,
-            idempotency_key=payload.idempotency_key,
-            note=payload.note.strip() or None if payload.note else None,
-        )
-    except InsufficientFunds as error:
-        # 409 Conflict: the request is well formed, but the wallet's state does not allow it.
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(error)) from error
+    transfer = spend(
+        db,
+        user,
+        kind=TransferKind.SEND,
+        destination=recipient_wallet,
+        amount=payload.amount,
+        idempotency_key=payload.idempotency_key,
+        note=payload.note.strip() or None if payload.note else None,
+    )
     check_same_request(transfer, source=wallet, destination=recipient_wallet, amount=payload.amount)
     db.commit()
     db.refresh(transfer)

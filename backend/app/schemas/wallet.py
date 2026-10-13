@@ -25,6 +25,16 @@ class WalletRead(BaseModel):
     currency: str
 
 
+class LimitsRead(BaseModel):
+    """How much the logged-in user may send per day, and how much is left today."""
+
+    # "verified" once the identity check is passed; it has the higher limit.
+    level: Literal["unverified", "verified"]
+    daily_limit: Amount
+    sent_today: Amount
+    remaining: Amount
+
+
 class TopUpRequest(BaseModel):
     """Request body for adding pretend money to the wallet."""
 

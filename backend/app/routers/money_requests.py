@@ -7,10 +7,10 @@ from sqlalchemy.orm import Session
 from app.auth import CurrentUser
 from app.database import DbSession
 from app.enums import MoneyRequestStatus, TransferKind
-from app.identity import VerifiedUser
 from app.models import MoneyRequest, User
 from app.schemas.wallet import MoneyRequestCreate, MoneyRequestPay, MoneyRequestRead
-from app.wallet import InsufficientFunds, get_or_create_wallet, move_money
+from app.spending import spend
+from app.wallet import get_or_create_wallet
 
 router = APIRouter(prefix="/wallet/requests", tags=["wallet"])
 
@@ -101,7 +101,7 @@ def list_requests(db: DbSession, user: CurrentUser) -> list[MoneyRequestRead]:
 
 @router.post("/{request_id}/pay", response_model=MoneyRequestRead)
 def pay_request(
-    request_id: int, payload: MoneyRequestPay, db: DbSession, user: VerifiedUser
+    request_id: int, payload: MoneyRequestPay, db: DbSession, user: CurrentUser
 ) -> MoneyRequestRead:
     """Pay a request from the wallet. The money moves and the request is closed together."""
     request = get_pending_or_error(db, request_id, user=user, asked=True)
@@ -111,18 +111,15 @@ def pay_request(
     require_pending(request)
 
     requester = db.get(User, request.from_user_id)
-    try:
-        transfer = move_money(
-            db,
-            kind=TransferKind.REQUEST,
-            source=get_or_create_wallet(db, user),
-            destination=get_or_create_wallet(db, requester),
-            amount=request.amount,
-            idempotency_key=payload.idempotency_key,
-            note=request.note,
-        )
-    except InsufficientFunds as error:
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(error)) from error
+    transfer = spend(
+        db,
+        user,
+        kind=TransferKind.REQUEST,
+        destination=get_or_create_wallet(db, requester),
+        amount=request.amount,
+        idempotency_key=payload.idempotency_key,
+        note=request.note,
+    )
 
     request.wallet_transfer_id = transfer.id
     resolve(request, MoneyRequestStatus.PAID)
