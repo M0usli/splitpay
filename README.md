@@ -202,6 +202,10 @@ with pretend transactions. The app cannot be pointed at real accounts.
 | POST | `/bank/sync` | Import new transactions (safe to call again) |
 | GET | `/bank/transactions` | Imported transactions waiting for review |
 | POST | `/bank/transactions/{id}/add`, `.../ignore` | Make an expense from one, or hide it |
+| GET | `/wallet` | The logged-in user's wallet balance (pretend money) |
+| POST | `/wallet/top-up` | Add pretend money to the wallet |
+| POST | `/wallet/send` | Send money to another user by email |
+| GET | `/wallet/transactions` | Money in and out, newest first |
 
 Every `/receipts`, `/expenses` and `/stats` endpoint needs a login and works
 only on the logged-in user's own rows.
@@ -279,6 +283,7 @@ receipt-tracker/
 │   │   ├── auth.py         password hashing, login sessions, current user
 │   │   ├── splitting.py    the arithmetic for splitting shared expenses
 │   │   ├── bank/           the bank-data interface and the Plaid sandbox client
+│   │   ├── wallet.py       the ledger: moving pretend money between wallets
 │   │   ├── routers/        the HTTP endpoints
 │   │   ├── schemas/        Pydantic request and response shapes
 │   │   ├── models/         SQLAlchemy database tables
@@ -338,6 +343,13 @@ receipt-tracker/
   The server works out the parts from the items; parts sent by the browser
   are ignored. The page shows a live summary from the same server code
   (`/household/split-preview`), so what you see is what gets saved.
+- **The wallet is a ledger, and the money is pretend.** Every transfer takes
+  an amount out of one wallet and puts it into another, so the total over
+  all wallets is always zero; a top-up comes from an "outside world" wallet.
+  Balances are added up from the transfers, never stored. A send locks the
+  sender's wallet row while it checks the balance, so simultaneous sends
+  cannot overspend, and each request carries an idempotency key so a double
+  tap or a retry moves money once.
 - **The bank connection is sandbox only, by construction.** The Plaid
   address is a constant in the code and there is no setting to change it.
   The secret key and each bank's access token stay on the backend; the

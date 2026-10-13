@@ -677,6 +677,83 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/wallet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Wallet */
+        get: operations["get_wallet_wallet_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wallet/top-up": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Top Up
+         * @description Add pretend money. It comes out of the outside-world wallet.
+         */
+        post: operations["top_up_wallet_top_up_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wallet/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Money
+         * @description Send money to another user, found by their email.
+         */
+        post: operations["send_money_wallet_send_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wallet/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Transactions
+         * @description Money in and out of the user's wallet, newest first.
+         */
+        get: operations["list_transactions_wallet_transactions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1180,6 +1257,23 @@ export interface components {
             shares?: components["schemas"]["Share-Input"][] | null;
         };
         /**
+         * SendRequest
+         * @description Request body for sending money to another user.
+         */
+        SendRequest: {
+            /**
+             * To Email
+             * Format: email
+             */
+            to_email: string;
+            /** Amount */
+            amount: number | string;
+            /** Note */
+            note?: string | null;
+            /** Idempotency Key */
+            idempotency_key: string;
+        };
+        /**
          * SettlementCreate
          * @description Request body for recording that the logged-in user paid a member back.
          */
@@ -1367,6 +1461,56 @@ export interface components {
             removed: number;
         };
         /**
+         * TopUpRequest
+         * @description Request body for adding pretend money to the wallet.
+         */
+        TopUpRequest: {
+            /** Amount */
+            amount: number | string;
+            /** Idempotency Key */
+            idempotency_key: string;
+        };
+        /**
+         * TransactionRead
+         * @description One line of the wallet's history, seen from the logged-in user's side.
+         */
+        TransactionRead: {
+            /** Id */
+            id: number;
+            kind: components["schemas"]["TransferKind"];
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "in" | "out";
+            /** Amount */
+            amount: string;
+            /** Counterparty */
+            counterparty: string | null;
+            /** Note */
+            note: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * TransferKind
+         * @description Why money moved between two wallets.
+         * @enum {string}
+         */
+        TransferKind: "top_up" | "send";
+        /**
+         * TransferResult
+         * @description What a top-up or a send returns: the new line of history and the new balance.
+         */
+        TransferResult: {
+            transaction: components["schemas"]["TransactionRead"];
+            /** Balance */
+            balance: string;
+        };
+        /**
          * UserCreate
          * @description Request body for registering. A new password must be at least 8 characters.
          */
@@ -1406,6 +1550,16 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * WalletRead
+         * @description The logged-in user's wallet.
+         */
+        WalletRead: {
+            /** Balance */
+            balance: string;
+            /** Currency */
+            currency: string;
         };
     };
     responses: never;
@@ -2695,6 +2849,138 @@ export interface operations {
             };
         };
     };
+    get_wallet_wallet_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    top_up_wallet_top_up_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopUpRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_money_wallet_send_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_transactions_wallet_transactions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
 }
 type FlattenedDeepRequired<T> = {
     [K in keyof T]-?: FlattenedDeepRequired<T[K] extends unknown[] | undefined | null ? Extract<T[K], unknown[]>[number] : T[K]>;
@@ -2708,3 +2994,5 @@ export const bankTransactionStatusValues: ReadonlyArray<FlattenedDeepRequired<co
 export const categoryValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Category"]> = ["Groceries", "Dining", "Transport", "Shopping", "Entertainment", "Bills & Utilities", "Health", "Other"];
 export const healthResponseDatabaseValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["HealthResponse"]["database"]> = ["ok", "unavailable"];
 export const receiptStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ReceiptStatus"]> = ["pending", "extracted", "failed"];
+export const transactionReadDirectionValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TransactionRead"]["direction"]> = ["in", "out"];
+export const transferKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TransferKind"]> = ["top_up", "send"];

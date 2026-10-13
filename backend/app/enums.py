@@ -22,6 +22,13 @@ class BankTransactionStatus(StrEnum):
     IGNORED = "ignored"  # not something to track
 
 
+class TransferKind(StrEnum):
+    """Why money moved between two wallets."""
+
+    TOP_UP = "top_up"  # pretend money added from outside
+    SEND = "send"  # one user sent money to another
+
+
 class ReceiptStatus(StrEnum):
     PENDING = "pending"
     EXTRACTED = "extracted"
