@@ -4,6 +4,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 
 import Wallet from "@/components/Wallet";
 import {
+  getHousehold,
   getWallet,
   listWalletTransactions,
   sendMoney,
@@ -12,9 +13,15 @@ import {
   type WalletTransaction,
 } from "@/lib/api";
 
-// No test calls the real backend.
+// The logged-in user is Sam. No test calls the real backend.
+vi.mock("@/components/AuthProvider", () => ({
+  useAuth: () => ({
+    auth: { state: "signedIn", user: { id: 1, email: "sam@example.com", created_at: "" } },
+  }),
+}));
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
+  getHousehold: vi.fn(),
   getWallet: vi.fn(),
   listWalletTransactions: vi.fn(),
   sendMoney: vi.fn(),
@@ -54,18 +61,30 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(getWallet).mockResolvedValue({ balance: "75.50", currency: "CAD" });
   vi.mocked(listWalletTransactions).mockResolvedValue([RECEIVED, SENT, TOP_UP]);
+  // Sam lives with Kim, who is not in the history yet.
+  vi.mocked(getHousehold).mockResolvedValue({
+    id: 7,
+    name: "Apartment 4B",
+    invite_code: "AF6S4JQ8",
+    members: [
+      { id: 1, email: "sam@example.com" },
+      { id: 4, email: "kim@example.com" },
+    ],
+  });
   vi.mocked(topUpWallet).mockResolvedValue(RESULT);
   vi.mocked(sendMoney).mockResolvedValue(RESULT);
 });
 
-async function fillSend(email: string, amount: string, note = "") {
-  await userEvent.type(await screen.findByLabelText("To (their email)"), email);
-  await userEvent.type(screen.getByLabelText("Amount"), amount);
-  if (note !== "") {
-    await userEvent.type(screen.getByLabelText(/^Note/), note);
-  }
-  await userEvent.click(screen.getByRole("button", { name: "Review" }));
+const click = (name: string | RegExp) => userEvent.click(screen.getByRole("button", { name }));
+
+/** From the start: Send, pick Alex, tap $20. Leaves the "How much?" step open. */
+async function startSendingToAlex() {
+  await userEvent.click(await screen.findByRole("button", { name: "Send" }));
+  await click("Send to alex@example.com");
+  await click("$20");
 }
+
+// --- the start screen ---
 
 test("shows the balance and says the money is pretend", async () => {
   render(<Wallet />);
@@ -78,122 +97,201 @@ test("shows the balance and says the money is pretend", async () => {
 test("the history describes each line from the user's side", async () => {
   render(<Wallet />);
 
-  const history = within(await screen.findByRole("region", { name: "History" }));
-  const rows = history.getAllByRole("listitem");
-  expect(rows[0]).toHaveTextContent("Received from jo@example.com");
+  const rows = within(await screen.findByRole("region", { name: "History" })).getAllByRole("listitem");
+  expect(rows[0]).toHaveTextContent("Received from jo");
   expect(rows[0]).toHaveTextContent("+$5.50");
-  expect(rows[1]).toHaveTextContent("Sent to alex@example.com");
+  expect(rows[1]).toHaveTextContent("Sent to alex");
   expect(rows[1]).toHaveTextContent("−$30.00");
   expect(rows[1]).toHaveTextContent("Pizza");
-  expect(rows[2]).toHaveTextContent("Top-up");
-  expect(rows[2]).toHaveTextContent("+$100.00");
+  expect(rows[2]).toHaveTextContent("Added money");
 });
 
-test("an empty wallet says how to start", async () => {
-  vi.mocked(listWalletTransactions).mockResolvedValue([]);
+test("offers housemates and people from the history as one-tap buttons, each once", async () => {
   render(<Wallet />);
 
-  expect(await screen.findByText(/Nothing yet/)).toBeInTheDocument();
+  const quick = within(await screen.findByRole("region", { name: "Send again" }));
+  const names = quick.getAllByRole("button").map((button) => button.getAttribute("aria-label"));
+  // The housemate first, then the history, newest first. Sam is never offered to Sam.
+  expect(names).toEqual([
+    "Send to kim@example.com",
+    "Send to jo@example.com",
+    "Send to alex@example.com",
+  ]);
 });
 
-test("a quick button adds that amount with a fresh request id", async () => {
+test("the wallet still works when the household cannot be loaded", async () => {
+  vi.mocked(getHousehold).mockRejectedValue(new Error("Could not reach the backend."));
   render(<Wallet />);
 
-  await userEvent.click(await screen.findByRole("button", { name: "+ $50.00" }));
+  expect(await screen.findByText("$75.50")).toBeInTheDocument();
+});
+
+// --- adding money ---
+
+test("adding money takes two taps: an amount and the button", async () => {
+  render(<Wallet />);
+
+  await userEvent.click(await screen.findByRole("button", { name: "Add money" }));
+  await click("$50");
+  await click("Add $50.00");
 
   expect(topUpWallet).toHaveBeenCalledWith("50", expect.stringMatching(/^[0-9a-f]{32}$/));
   expect(await screen.findByRole("status")).toHaveTextContent("$50.00 was added to your wallet.");
-  // The page loads the balance again to show the new one.
+  // Back on the start screen, with the balance loaded again.
+  expect(screen.getByRole("region", { name: "Balance" })).toBeInTheDocument();
   expect(getWallet).toHaveBeenCalledTimes(2);
 });
 
-test("another amount can be typed in", async () => {
+test("the number pad builds any amount without typing", async () => {
   render(<Wallet />);
 
-  await userEvent.type(await screen.findByLabelText("Another amount"), "12.50");
-  await userEvent.click(screen.getByRole("button", { name: "Add" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Add money" }));
+  for (const key of ["1", "2", "Point", "5"]) {
+    await click(key);
+  }
 
-  expect(topUpWallet).toHaveBeenCalledWith("12.50", expect.any(String));
+  expect(screen.getByTestId("amount")).toHaveTextContent("12.5");
+  await click("Add $12.50");
+  expect(topUpWallet).toHaveBeenCalledWith("12.5", expect.any(String));
 });
 
-test("a top-up that is not an amount is refused before calling the backend", async () => {
+test("the add button is off until there is an amount above zero", async () => {
   render(<Wallet />);
 
-  await userEvent.type(await screen.findByLabelText("Another amount"), "abc");
-  await userEvent.click(screen.getByRole("button", { name: "Add" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Add money" }));
 
-  expect(screen.getByRole("alert")).toHaveTextContent("Enter an amount to add");
-  expect(topUpWallet).not.toHaveBeenCalled();
+  const add = screen.getAllByRole("button", { name: "Add money" }).at(-1);
+  expect(add).toBeDisabled();
+  await click("0");
+  expect(add).toBeDisabled();
+  await click("7");
+  expect(screen.getByRole("button", { name: "Add $7.00" })).toBeEnabled();
 });
 
-test("sending asks for confirmation before any money moves", async () => {
+test("Erase removes the last key pressed", async () => {
   render(<Wallet />);
 
-  await fillSend("alex@example.com", "30", "Pizza");
+  await userEvent.click(await screen.findByRole("button", { name: "Add money" }));
+  await click("4");
+  await click("2");
+  await click("Erase");
 
-  expect(screen.getByText("$30.00")).toBeInTheDocument();
-  expect(screen.getByText("alex@example.com")).toBeInTheDocument();
-  expect(screen.getByText("Note: Pizza")).toBeInTheDocument();
-  expect(sendMoney).not.toHaveBeenCalled();
+  expect(screen.getByTestId("amount")).toHaveTextContent("4");
 });
 
-test("confirming sends the money and clears the form", async () => {
-  render(<Wallet />);
-  await fillSend("alex@example.com", "30", "Pizza");
+// --- sending money ---
 
-  await userEvent.click(screen.getByRole("button", { name: "Confirm and send" }));
+test("sending to a known person needs no typing at all", async () => {
+  render(<Wallet />);
+
+  await startSendingToAlex();
+  await click("Groceries");
+  await click("Review");
+  await click("Confirm and send");
 
   expect(sendMoney).toHaveBeenCalledWith(
-    expect.objectContaining({ toEmail: "alex@example.com", amount: "30", note: "Pizza" }),
+    expect.objectContaining({ toEmail: "alex@example.com", amount: "20", note: "Groceries" }),
     expect.stringMatching(/^[0-9a-f]{32}$/),
   );
   expect(await screen.findByRole("status")).toHaveTextContent(
-    "$30.00 was sent to alex@example.com.",
+    "$20.00 was sent to alex@example.com.",
   );
-  expect(screen.getByLabelText("To (their email)")).toHaveValue("");
 });
 
-test("going back from the confirm step keeps what was typed and sends nothing", async () => {
+test("nothing is sent before the confirm button is pressed", async () => {
   render(<Wallet />);
-  await fillSend("alex@example.com", "30");
 
-  await userEvent.click(screen.getByRole("button", { name: "Back" }));
+  await startSendingToAlex();
+  await click("Review");
 
+  const confirm = within(screen.getByRole("region", { name: "Confirm" }));
+  expect(confirm.getByText("$20.00")).toBeInTheDocument();
+  expect(confirm.getByText("alex@example.com")).toBeInTheDocument();
   expect(sendMoney).not.toHaveBeenCalled();
-  expect(screen.getByLabelText("To (their email)")).toHaveValue("alex@example.com");
-  expect(screen.getByLabelText("Amount")).toHaveValue("30");
+});
+
+test("a person on the start screen skips the choosing step", async () => {
+  render(<Wallet />);
+
+  await userEvent.click(await screen.findByRole("button", { name: "Send to kim@example.com" }));
+
+  expect(screen.getByRole("heading", { name: "How much?" })).toBeInTheDocument();
+  expect(screen.getByText("kim@example.com")).toBeInTheDocument();
+});
+
+test("someone new can be reached by typing their email once", async () => {
+  render(<Wallet />);
+
+  await userEvent.click(await screen.findByRole("button", { name: "Send" }));
+  await click("+ Someone else");
+  await userEvent.type(screen.getByLabelText("Their email"), "  New.Person@Example.com ");
+  await click("Continue");
+
+  expect(screen.getByText("new.person@example.com")).toBeInTheDocument();
+});
+
+test("a note chip can be chosen and taken back", async () => {
+  render(<Wallet />);
+  await startSendingToAlex();
+
+  await click("Rent");
+  expect(screen.getByRole("button", { name: "Rent" })).toHaveAttribute("aria-pressed", "true");
+  await click("Rent");
+  await click("Review");
+  await click("Confirm and send");
+
+  expect(sendMoney).toHaveBeenCalledWith(expect.objectContaining({ note: null }), expect.any(String));
+});
+
+test("Review is off until there is an amount", async () => {
+  render(<Wallet />);
+
+  await userEvent.click(await screen.findByRole("button", { name: "Send" }));
+  await click("Send to alex@example.com");
+
+  expect(screen.getByRole("button", { name: "Review" })).toBeDisabled();
+});
+
+test("Back goes one step back each time", async () => {
+  render(<Wallet />);
+  await startSendingToAlex();
+  await click("Review");
+
+  await click("Back");
+  expect(screen.getByRole("heading", { name: "How much?" })).toBeInTheDocument();
+  await click("Back");
+  expect(screen.getByRole("heading", { name: "Who are you sending to?" })).toBeInTheDocument();
+  await click("Back");
+  expect(screen.getByRole("region", { name: "Balance" })).toBeInTheDocument();
+  expect(sendMoney).not.toHaveBeenCalled();
+});
+
+test("a refused send shows the reason and can be retried with the same request id", async () => {
+  vi.mocked(sendMoney).mockRejectedValueOnce(new Error("Could not reach the backend."));
+  render(<Wallet />);
+  await startSendingToAlex();
+  await click("Review");
+
+  await click("Confirm and send");
+  expect(await screen.findByRole("alert")).toHaveTextContent("Could not reach the backend.");
+  await click("Confirm and send");
+  await screen.findByRole("status");
+
+  // The retry is the same action, so it carries the same id and cannot send twice.
+  const [first, second] = vi.mocked(sendMoney).mock.calls.map((call) => call[1]);
+  expect(first).toBe(second);
 });
 
 test("each new send gets its own request id", async () => {
   render(<Wallet />);
 
-  await fillSend("alex@example.com", "30");
-  await userEvent.click(screen.getByRole("button", { name: "Confirm and send" }));
-  await screen.findByRole("status");
-  await fillSend("alex@example.com", "30");
-  await userEvent.click(screen.getByRole("button", { name: "Confirm and send" }));
-  await screen.findByRole("status");
+  for (let round = 0; round < 2; round++) {
+    await startSendingToAlex();
+    await click("Review");
+    await click("Confirm and send");
+    await screen.findByRole("status");
+  }
 
   const [first, second] = vi.mocked(sendMoney).mock.calls.map((call) => call[1]);
   expect(first).not.toBe(second);
-});
-
-test("a refused send shows the reason and keeps the form filled in", async () => {
-  vi.mocked(sendMoney).mockRejectedValue(new Error("You do not have enough money in your wallet."));
-  render(<Wallet />);
-  await fillSend("alex@example.com", "500");
-
-  await userEvent.click(screen.getByRole("button", { name: "Confirm and send" }));
-
-  expect(await screen.findByRole("alert")).toHaveTextContent("You do not have enough money");
-  expect(screen.getByLabelText("Amount")).toHaveValue("500");
-});
-
-test("a send amount that is not an amount never reaches the confirm step", async () => {
-  render(<Wallet />);
-
-  await fillSend("alex@example.com", "lots");
-
-  expect(screen.getByRole("alert")).toHaveTextContent("Enter an amount to send");
-  expect(screen.queryByRole("button", { name: "Confirm and send" })).not.toBeInTheDocument();
 });
