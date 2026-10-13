@@ -33,6 +33,7 @@ export type Recurring = Schemas["RecurringRead"];
 export type Wallet = Schemas["WalletRead"];
 export type WalletTransaction = Schemas["TransactionRead"];
 export type TransferResult = Schemas["TransferResult"];
+export type Limits = Schemas["LimitsRead"];
 export type MoneyRequest = Schemas["MoneyRequestRead"];
 export type Identity = Schemas["IdentityRead"];
 export type IdentitySubmit = Schemas["IdentitySubmit"];
@@ -283,6 +284,11 @@ export function ignoreBankTransaction(id: number): Promise<BankTransaction> {
 
 export function getWallet(): Promise<Wallet> {
   return request("/wallet");
+}
+
+/** The daily sending limit, and how much of it is left today. */
+export function getWalletLimits(): Promise<Limits> {
+  return request("/wallet/limits");
 }
 
 /** Money in and out of the wallet, newest first. */

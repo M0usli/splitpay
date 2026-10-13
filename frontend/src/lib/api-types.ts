@@ -718,6 +718,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/wallet/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Limits
+         * @description The user's daily sending limit and what is left of it today.
+         */
+        get: operations["get_limits_wallet_limits_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/wallet/top-up": {
         parameters: {
             query?: never;
@@ -1414,6 +1434,23 @@ export interface components {
             document_type: components["schemas"]["DocumentType"];
             /** Document Number */
             document_number: string;
+        };
+        /**
+         * LimitsRead
+         * @description How much the logged-in user may send per day, and how much is left today.
+         */
+        LimitsRead: {
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "unverified" | "verified";
+            /** Daily Limit */
+            daily_limit: string;
+            /** Sent Today */
+            sent_today: string;
+            /** Remaining */
+            remaining: string;
         };
         /**
          * LinkToken
@@ -3327,6 +3364,37 @@ export interface operations {
             };
         };
     };
+    get_limits_wallet_limits_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LimitsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     top_up_wallet_top_up_post: {
         parameters: {
             query?: never;
@@ -3872,6 +3940,7 @@ export const documentTypeValues: ReadonlyArray<FlattenedDeepRequired<components>
 export const healthResponseDatabaseValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["HealthResponse"]["database"]> = ["ok", "unavailable"];
 export const identityReadStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["IdentityRead"]["status"]> = ["unverified", "verified", "rejected"];
 export const identitySubmitCountryValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["IdentitySubmit"]["country"]> = ["CA", "US", "GB", "SA", "AE"];
+export const limitsReadLevelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["LimitsRead"]["level"]> = ["unverified", "verified"];
 export const moneyRequestReadDirectionValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MoneyRequestRead"]["direction"]> = ["incoming", "outgoing"];
 export const moneyRequestStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MoneyRequestStatus"]> = ["pending", "paid", "declined", "cancelled"];
 export const receiptStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ReceiptStatus"]> = ["pending", "extracted", "failed"];

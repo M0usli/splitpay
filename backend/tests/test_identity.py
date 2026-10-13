@@ -1,4 +1,4 @@
-"""The identity check, and the rule that only verified users can send money.
+"""The identity check. What it unlocks (the daily limit) is tested in test_limits.py.
 
 `client` (Sam) and `other_client` (Alex) are already verified, because most
 tests are about something else. The `newcomer` fixture is a user who has
@@ -17,8 +17,6 @@ from app.main import app
 from app.models import IdentityVerification
 from app.routers.recurring import get_today
 from tests.conftest import log_in_as
-from tests.test_household import ALEX, SAM, create_household
-from tests.test_wallet import balance, key, top_up
 
 TODAY = datetime.date(2026, 10, 13)
 NEWCOMER = "newcomer@example.com"
@@ -167,99 +165,3 @@ def test_one_users_check_says_nothing_about_another(newcomer: TestClient, db_ses
 @pytest.mark.parametrize("method", ["GET", "POST"])
 def test_the_identity_endpoints_require_a_login(anonymous_client: TestClient, method: str):
     assert anonymous_client.request(method, "/identity").status_code == 401
-
-
-# --- what an unverified user can and cannot do ---
-
-
-def test_an_unverified_user_can_add_and_receive_money(newcomer: TestClient, client: TestClient):
-    top_up(client, "50.00")
-
-    assert top_up(newcomer, "20.00").status_code == 200
-    sent = client.post(
-        "/wallet/send", json={"to_email": NEWCOMER, "amount": "5.00", "idempotency_key": key()}
-    )
-
-    assert sent.status_code == 200
-    assert balance(newcomer) == "25.00"
-
-
-def test_an_unverified_user_cannot_send_money(newcomer: TestClient, client: TestClient):
-    top_up(newcomer, "20.00")
-
-    response = newcomer.post(
-        "/wallet/send", json={"to_email": SAM, "amount": "5.00", "idempotency_key": key()}
-    )
-
-    assert response.status_code == 403
-    assert response.json()["detail"] == "Verify your identity before sending money."
-    assert (balance(newcomer), balance(client)) == ("20.00", "0.00")
-
-
-def test_an_unverified_user_cannot_pay_a_request(newcomer: TestClient, client: TestClient):
-    top_up(newcomer, "20.00")
-    request = client.post("/wallet/requests", json={"to_email": NEWCOMER, "amount": "5.00"}).json()
-
-    response = newcomer.post(
-        f"/wallet/requests/{request['id']}/pay", json={"idempotency_key": key()}
-    )
-
-    assert response.status_code == 403
-    assert balance(newcomer) == "20.00"
-    # Declining moves no money, so it is allowed.
-    assert newcomer.post(f"/wallet/requests/{request['id']}/decline").status_code == 200
-
-
-def test_an_unverified_user_cannot_pay_a_bill(newcomer: TestClient):
-    top_up(newcomer, "20.00")
-    saved = newcomer.post(
-        "/bills/saved", json={"biller_code": "maplenet", "account_number": "AB-1234"}
-    ).json()
-
-    response = newcomer.post(
-        "/bills/pay",
-        json={"saved_biller_id": saved["id"], "amount": "5.00", "idempotency_key": key()},
-    )
-
-    assert response.status_code == 403
-    assert balance(newcomer) == "20.00"
-
-
-def test_an_unverified_user_cannot_pay_a_split_bill_debt(newcomer: TestClient, client: TestClient):
-    top_up(newcomer, "20.00")
-    household = create_household(client)
-    members = newcomer.post(
-        "/household/join", json={"invite_code": household["invite_code"]}
-    ).json()
-    sam_id = next(member["id"] for member in members["members"] if member["email"] == SAM)
-
-    response = newcomer.post(
-        "/household/pay", json={"to_user_id": sam_id, "amount": "5.00", "idempotency_key": key()}
-    )
-
-    assert response.status_code == 403
-    assert balance(newcomer) == "20.00"
-
-
-def test_after_verifying_the_same_user_can_send(newcomer: TestClient, client: TestClient):
-    top_up(newcomer, "20.00")
-    submit(newcomer)
-
-    response = newcomer.post(
-        "/wallet/send", json={"to_email": ALEX, "amount": "5.00", "idempotency_key": key()}
-    )
-
-    # Alex has no account in this test, so the answer is "no such email":
-    # the request got past the identity check.
-    assert response.status_code == 404
-
-
-def test_a_rejected_user_still_cannot_send(newcomer: TestClient, client: TestClient):
-    top_up(newcomer, "20.00")
-    submit(newcomer, document_number="P1230000")
-
-    response = newcomer.post(
-        "/wallet/send", json={"to_email": SAM, "amount": "5.00", "idempotency_key": key()}
-    )
-
-    assert response.status_code == 403

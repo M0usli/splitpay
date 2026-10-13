@@ -12,8 +12,8 @@ import {
   declineMoneyRequest,
   getBalance,
   getHousehold,
-  getIdentity,
   getWallet,
+  getWalletLimits,
   listMoneyRequests,
   listWalletTransactions,
   payFromWallet,
@@ -21,6 +21,7 @@ import {
   requestMoney,
   sendMoney,
   topUpWallet,
+  type Limits,
   type MoneyRequest,
   type Wallet as WalletInfo,
   type WalletTransaction,
@@ -40,8 +41,8 @@ type WalletData = {
   debts: Debt[];
   /** Requests for money that are still waiting for an answer. */
   requests: MoneyRequest[];
-  /** Sending money needs a passed identity check. Adding and receiving do not. */
-  isVerified: boolean;
+  /** How much may be sent per day and what is left. Higher after the identity check. */
+  limits: Limits;
 };
 
 type Debt = { toId: number; toEmail: string; amount: string };
@@ -83,11 +84,11 @@ function errorMessage(error: unknown): string {
 }
 
 async function loadWalletData(myEmail: string): Promise<WalletData> {
-  const [wallet, transactions, allRequests, identity, household] = await Promise.all([
+  const [wallet, transactions, allRequests, limits, household] = await Promise.all([
     getWallet(),
     listWalletTransactions(),
     listMoneyRequests(),
-    getIdentity(),
+    getWalletLimits(),
     // The household only offers shortcuts. If it cannot be loaded, the wallet still works.
     getHousehold().catch(() => null),
   ]);
@@ -111,7 +112,7 @@ async function loadWalletData(myEmail: string): Promise<WalletData> {
     housemates,
     debts,
     requests,
-    isVerified: identity.status === "verified",
+    limits,
   };
 }
 
@@ -340,7 +341,8 @@ export default function Wallet({ payLink = null }: { payLink?: PayLink | null })
     );
   }
 
-  const { wallet, transactions, debts, requests, isVerified } = status.data;
+  const { wallet, transactions, debts, requests, limits } = status.data;
+  const isVerified = limits.level === "verified";
   // Only a refusal about identity gets a link here; "not enough money" is fixed on this page.
   const verifyLink = helpLinkFor(actionError)?.href === "/verify" ? helpLinkFor(actionError) : null;
   const incoming = requests.filter((request) => request.direction === "incoming");
@@ -348,30 +350,15 @@ export default function Wallet({ payLink = null }: { payLink?: PayLink | null })
   const people = suggestPeople(status.data);
 
   const alert = actionError !== null && (
-    <p role="alert" className="mb-4 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
-      {actionError}
-    </p>
-  );
-
-  // The backend refuses a send from an unverified user. Saying so before the
-  // steps saves them from filling everything in first.
-  const isSendingStep =
-    view.name === "send-confirm" ||
-    ((view.name === "who" || view.name === "amount") && view.mode === "send");
-  if (isSendingStep && !isVerified) {
-    return (
-      <section className={`${cardClass} mx-auto max-w-md`} aria-label="Send money">
-        <StepHeader title="Verify your identity first" onBack={() => open({ name: "home" })} />
-        <p className="text-sm text-zinc-600">
-          To send money, the wallet has to know who you are. It takes about a minute. You can
-          already add money and receive it.
-        </p>
-        <Link href="/verify" className={`${primaryButtonClass} mt-4 block text-center`}>
-          Verify now
+    <div role="alert" className="mb-4 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
+      <p>{actionError}</p>
+      {verifyLink !== null && (
+        <Link href={verifyLink.href} className="font-medium underline">
+          {verifyLink.label}
         </Link>
-      </section>
-    );
-  }
+      )}
+    </div>
+  );
 
   if (view.name === "add") {
     return (
@@ -641,6 +628,10 @@ export default function Wallet({ payLink = null }: { payLink?: PayLink | null })
         <p className="mt-2 text-xs text-emerald-100">
           Pretend money, for demonstration. Nothing here is connected to a real bank.
         </p>
+        <p className="mt-2 text-xs text-emerald-100">
+          Left to send today: <strong>{formatMoney(limits.remaining, wallet.currency)}</strong> of{" "}
+          {formatMoney(limits.daily_limit, wallet.currency)}
+        </p>
         <div className="mt-6 flex max-w-sm justify-between gap-2">
           <ActionButton label="Add money" onClick={() => open({ name: "add" })}>
             +
@@ -677,10 +668,11 @@ export default function Wallet({ payLink = null }: { payLink?: PayLink | null })
       {!isVerified && (
         <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5" aria-labelledby="verify-heading">
           <h2 id="verify-heading" className="text-sm font-semibold text-amber-900">
-            Verify your identity to send money
+            Verify your identity to send more
           </h2>
           <p className="mt-1 text-sm text-amber-800">
-            You can add and receive money now. Sending and paying need a quick identity check.
+            For now you can send up to {formatMoney(limits.daily_limit, wallet.currency)} a day. A
+            quick identity check raises your limit.
           </p>
           <Link
             href="/verify"

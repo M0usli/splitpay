@@ -8,8 +8,8 @@ import {
   declineMoneyRequest,
   getBalance,
   getHousehold,
-  getIdentity,
   getWallet,
+  getWalletLimits,
   listMoneyRequests,
   listWalletTransactions,
   payFromWallet,
@@ -17,7 +17,7 @@ import {
   requestMoney,
   sendMoney,
   topUpWallet,
-  type Identity,
+  type Limits,
   type MoneyRequest,
   type TransferResult,
   type WalletTransaction,
@@ -35,8 +35,8 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   declineMoneyRequest: vi.fn(),
   getBalance: vi.fn(),
   getHousehold: vi.fn(),
-  getIdentity: vi.fn(),
   getWallet: vi.fn(),
+  getWalletLimits: vi.fn(),
   listMoneyRequests: vi.fn(),
   listWalletTransactions: vi.fn(),
   payFromWallet: vi.fn(),
@@ -75,14 +75,18 @@ const RECEIVED: WalletTransaction = {
 
 const RESULT: TransferResult = { transaction: SENT, balance: "70.00" };
 
-const VERIFIED: Identity = {
-  status: "verified",
-  full_name: "Sam Example",
-  document_type: "passport",
-  document_last4: "4567",
-  rejection_reason: null,
+const VERIFIED: Limits = {
+  level: "verified",
+  daily_limit: "2000.00",
+  sent_today: "150.00",
+  remaining: "1850.00",
 };
-const UNVERIFIED: Identity = { ...VERIFIED, status: "unverified", full_name: null };
+const UNVERIFIED: Limits = {
+  level: "unverified",
+  daily_limit: "50.00",
+  sent_today: "20.00",
+  remaining: "30.00",
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -106,7 +110,7 @@ beforeEach(() => {
     payments: [],
   });
   // Sam has passed the identity check unless a test says otherwise.
-  vi.mocked(getIdentity).mockResolvedValue(VERIFIED);
+  vi.mocked(getWalletLimits).mockResolvedValue(VERIFIED);
   // No requests are waiting unless a test says so.
   vi.mocked(listMoneyRequests).mockResolvedValue([]);
   vi.mocked(topUpWallet).mockResolvedValue(RESULT);
@@ -426,60 +430,64 @@ test("scanning your own code explains that it cannot be paid", async () => {
 
 // --- the identity check ---
 
-test("a verified user sees a badge and no reminder", async () => {
+test("a verified user sees a badge, the daily limit, and no reminder", async () => {
   render(<Wallet />);
 
   const balance = within(await screen.findByRole("region", { name: "Balance" }));
   expect(balance.getByText("✓ Verified")).toBeInTheDocument();
+  expect(balance.getByText("$1,850.00")).toBeInTheDocument();
+  expect(balance.getByText(/of \$2,000\.00/)).toBeInTheDocument();
   expect(
-    screen.queryByRole("region", { name: "Verify your identity to send money" }),
+    screen.queryByRole("region", { name: "Verify your identity to send more" }),
   ).not.toBeInTheDocument();
 });
 
-test("an unverified user is reminded, with a link to the check", async () => {
-  vi.mocked(getIdentity).mockResolvedValue(UNVERIFIED);
+test("an unverified user sees the small limit and a link to the check", async () => {
+  vi.mocked(getWalletLimits).mockResolvedValue(UNVERIFIED);
   render(<Wallet />);
 
   const reminder = within(
-    await screen.findByRole("region", { name: "Verify your identity to send money" }),
+    await screen.findByRole("region", { name: "Verify your identity to send more" }),
   );
+  expect(reminder.getByText(/up to \$50\.00 a day/)).toBeInTheDocument();
   expect(reminder.getByRole("link", { name: "Verify now" })).toHaveAttribute("href", "/verify");
+  expect(screen.getByText("$30.00")).toBeInTheDocument();
   expect(screen.queryByText("✓ Verified")).not.toBeInTheDocument();
 });
 
-test("an unverified user who taps Send is told to verify first", async () => {
-  vi.mocked(getIdentity).mockResolvedValue(UNVERIFIED);
+test("an unverified user can start a send", async () => {
+  vi.mocked(getWalletLimits).mockResolvedValue(UNVERIFIED);
   render(<Wallet />);
 
   await userEvent.click(await screen.findByRole("button", { name: "Send" }));
 
-  expect(screen.getByText("Verify your identity first")).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Send to alex@example.com" })).not.toBeInTheDocument();
+  expect(screen.getByText("Who are you sending to?")).toBeInTheDocument();
 });
 
-test("an unverified user can still add money and ask for it", async () => {
-  vi.mocked(getIdentity).mockResolvedValue(UNVERIFIED);
+test("a send over the daily limit says so, with a link to the check", async () => {
+  vi.mocked(getWalletLimits).mockResolvedValue(UNVERIFIED);
+  vi.mocked(sendMoney).mockRejectedValue(
+    new Error(
+      "Unverified accounts can send $50.00 a day, and you have $30.00 left. Verify your identity to send up to $2,000.00 a day.",
+    ),
+  );
   render(<Wallet />);
 
-  await userEvent.click(await screen.findByRole("button", { name: "Request" }));
-  expect(screen.getByText("Who are you asking?")).toBeInTheDocument();
-  await click("Back");
-  await click("Add money");
-  expect(screen.getByRole("region", { name: "Add money" })).toBeInTheDocument();
+  await startSendingToAlex();
+  await click("Review");
+  await click("Confirm and send");
+
+  const alert = within(await screen.findByRole("alert"));
+  expect(alert.getByText(/you have \$30\.00 left/)).toBeInTheDocument();
+  expect(alert.getByRole("link", { name: "Verify your identity" })).toHaveAttribute("href", "/verify");
+  // Still on the confirm step, so the amount can be changed.
+  expect(screen.getByRole("button", { name: "Confirm and send" })).toBeInTheDocument();
 });
 
-test("a scanned code opened by an unverified user asks them to verify, and sends nothing", async () => {
-  vi.mocked(getIdentity).mockResolvedValue(UNVERIFIED);
-  render(<Wallet payLink={{ toEmail: "alex@example.com", amount: "12.50" }} />);
-
-  expect(await screen.findByText("Verify your identity first")).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Confirm and send" })).not.toBeInTheDocument();
-});
-
-test("a one-tap payment refused for identity links to the check", async () => {
+test("a one-tap payment refused for the limit links to the check", async () => {
   samOwesKim();
   vi.mocked(payFromWallet).mockRejectedValue(
-    new Error("Verify your identity before sending money."),
+    new Error("Unverified accounts can send $50.00 a day. Verify your identity to send more."),
   );
   render(<Wallet />);
 

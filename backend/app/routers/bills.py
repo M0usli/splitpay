@@ -6,7 +6,6 @@ from app.auth import CurrentUser
 from app.billers import BILLERS, BILLERS_BY_CODE
 from app.database import DbSession
 from app.enums import TransferKind
-from app.identity import VerifiedUser
 from app.models import BillPayment, SavedBiller
 from app.schemas.bill import (
     BillerRead,
@@ -15,7 +14,8 @@ from app.schemas.bill import (
     SavedBillerCreate,
     SavedBillerRead,
 )
-from app.wallet import InsufficientFunds, get_or_create_wallet, move_money
+from app.spending import spend
+from app.wallet import get_or_create_wallet
 
 router = APIRouter(prefix="/bills", tags=["bills"])
 
@@ -109,7 +109,7 @@ def remove_saved_biller(saved_id: int, db: DbSession, user: CurrentUser) -> None
 
 
 @router.post("/pay", response_model=BillPaymentRead, status_code=status.HTTP_201_CREATED)
-def pay_bill(payload: BillPay, db: DbSession, user: VerifiedUser) -> BillPaymentRead:
+def pay_bill(payload: BillPay, db: DbSession, user: CurrentUser) -> BillPaymentRead:
     """Pay a bill from the wallet and write its receipt, together.
 
     The money goes to the outside-world wallet, the opposite of a top-up:
@@ -121,18 +121,15 @@ def pay_bill(payload: BillPay, db: DbSession, user: VerifiedUser) -> BillPayment
 
     wallet = get_or_create_wallet(db, user)
     outside = get_or_create_wallet(db, None)
-    try:
-        transfer = move_money(
-            db,
-            kind=TransferKind.BILL,
-            source=wallet,
-            destination=outside,
-            amount=payload.amount,
-            idempotency_key=payload.idempotency_key,
-            note=BILLERS_BY_CODE[saved.biller_code].name,
-        )
-    except InsufficientFunds as error:
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(error)) from error
+    transfer = spend(
+        db,
+        user,
+        kind=TransferKind.BILL,
+        destination=outside,
+        amount=payload.amount,
+        idempotency_key=payload.idempotency_key,
+        note=BILLERS_BY_CODE[saved.biller_code].name,
+    )
 
     # A repeat of the same request (a double tap) finds the transfer already
     # made, and the receipt that goes with it.
