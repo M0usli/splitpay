@@ -1,6 +1,6 @@
 # Frontend
 
-The Next.js app for Receipt Tracker. See the [main README](../README.md) for
+The Next.js app for SplitPay. See the [main README](../README.md) for
 what the project does and how to run it with Docker Compose.
 
 | Command (inside the `frontend` container) | What it does |

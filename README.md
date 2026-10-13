@@ -1,9 +1,10 @@
-# Receipt Tracker
+# SplitPay
 
 [![CI](https://github.com/M0usli/receipt-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/M0usli/receipt-tracker/actions/workflows/ci.yml)
 
-A web app that turns a photo of a receipt into a tracked expense, and splits
-shared costs between roommates. Upload a receipt, the app reads it with OCR,
+A wallet app for sending money and splitting bills. It holds a balance of
+pretend money you can send to other people, turns a photo of a receipt into
+a tracked expense, and splits shared costs between roommates. Upload a receipt, the app reads it with OCR,
 an LLM pulls out the merchant, date, totals and every item, you check the
 result, and it is saved to a searchable list with a spending dashboard. A
 grocery receipt can be split item by item: tick who each item is for and the
@@ -59,6 +60,12 @@ Added in version 2:
   and the site can be added to the home screen.
 - **Bank import (sandbox).** Connect a pretend bank through Plaid's sandbox
   and turn its transactions into expenses after reviewing them.
+
+Added in version 3 (in progress):
+
+- **Wallet.** Every user has a balance of pretend money. Add money, send it
+  to another user by email with a confirm step, and see the history of money
+  in and out.
 
 ## How it works
 
@@ -294,7 +301,7 @@ receipt-tracker/
 │   └── tests/
 ├── frontend/
 │   └── src/
-│       ├── app/            pages (Upload, Review, Expenses, Dashboard, Split bill, Recurring, Bank, Log in, Sign up)
+│       ├── app/            pages (Wallet, Upload, Review, Expenses, Dashboard, Split bill, Recurring, Bank, Log in, Sign up)
 │       ├── components/     React components and their tests
 │       └── lib/            API client, generated types, formatting helpers
 ├── eval/                   test receipts, labels and results
@@ -350,6 +357,10 @@ receipt-tracker/
   sender's wallet row while it checks the balance, so simultaneous sends
   cannot overspend, and each request carries an idempotency key so a double
   tap or a retry moves money once.
+- **Sending money takes two steps.** The Wallet page shows the amount and
+  the recipient back for confirmation before anything moves. The request id
+  (idempotency key) is made when that confirm step opens, so pressing
+  Confirm twice sends the same id and the money moves once.
 - **The bank connection is sandbox only, by construction.** The Plaid
   address is a constant in the code and there is no setting to change it.
   The secret key and each bank's access token stay on the backend; the

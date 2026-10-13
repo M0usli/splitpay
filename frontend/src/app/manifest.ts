@@ -7,9 +7,9 @@ import type { MetadataRoute } from "next";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Receipt Tracker",
-    short_name: "Receipts",
-    description: "Scan receipts and track expenses with OCR and an LLM",
+    name: "SplitPay",
+    short_name: "SplitPay",
+    description: "A wallet for sending money and splitting bills, with receipt scanning",
     start_url: "/",
     // "standalone" opens it in its own window, without the browser's address bar.
     display: "standalone",
