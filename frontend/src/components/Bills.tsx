@@ -50,11 +50,11 @@ const BILL_AMOUNTS = ["25", "50", "75", "100"];
 
 const cardClass = "rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm";
 const primaryButtonClass =
-  "w-full rounded-xl bg-indigo-600 px-4 py-3 text-base font-semibold text-white " +
-  "hover:bg-indigo-500 disabled:bg-zinc-300";
+  "w-full rounded-xl bg-emerald-600 px-4 py-3 text-base font-semibold text-white " +
+  "hover:bg-emerald-500 disabled:bg-zinc-300";
 const dashedButtonClass =
   "w-full rounded-xl border border-dashed border-zinc-300 px-4 py-3 text-sm font-medium " +
-  "text-zinc-700 hover:border-indigo-400";
+  "text-zinc-700 hover:border-emerald-400";
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Something went wrong";
@@ -75,7 +75,7 @@ function BillerIcon({ name }: { name: string }) {
   return (
     <span
       aria-hidden
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-100 font-semibold text-indigo-700"
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 font-semibold text-emerald-700"
     >
       {name[0]}
     </span>
@@ -198,7 +198,7 @@ export default function Bills() {
               <button
                 type="button"
                 onClick={() => open({ name: "add-account", biller })}
-                className="flex w-full items-center gap-3 rounded-xl border border-zinc-200 p-3 text-left hover:border-indigo-400"
+                className="flex w-full items-center gap-3 rounded-xl border border-zinc-200 p-3 text-left hover:border-emerald-400"
               >
                 <BillerIcon name={biller.name} />
                 <span>
@@ -241,7 +241,7 @@ export default function Bills() {
             title="4 to 20 letters, digits or dashes"
             value={accountNumber}
             onChange={(event) => setAccountNumber(event.target.value)}
-            className="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2.5 text-sm uppercase focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2.5 text-sm uppercase focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
           />
           <p className="mt-1 text-xs text-zinc-500">
             The companies are made up, so any number works, for example AB-1234.
@@ -399,7 +399,7 @@ export default function Bills() {
                     disabled={isBusy}
                     onClick={() => open({ name: "pay-amount", saved: item })}
                     aria-label={`Pay ${item.biller.name} ${item.account_number}`}
-                    className="flex-1 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:bg-zinc-300"
+                    className="flex-1 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:bg-zinc-300"
                   >
                     Pay
                   </button>

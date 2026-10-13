@@ -69,8 +69,8 @@ const PHONE_ORIGIN = process.env.NEXT_PUBLIC_PHONE_ORIGIN ?? "";
 
 const cardClass = "rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm";
 const primaryButtonClass =
-  "w-full rounded-xl bg-indigo-600 px-4 py-3 text-base font-semibold text-white " +
-  "hover:bg-indigo-500 disabled:bg-zinc-300";
+  "w-full rounded-xl bg-emerald-600 px-4 py-3 text-base font-semibold text-white " +
+  "hover:bg-emerald-500 disabled:bg-zinc-300";
 const chipClass = "rounded-full border px-4 py-1.5 text-sm font-medium transition-colors";
 
 function errorMessage(error: unknown): string {
@@ -159,7 +159,7 @@ function describe(transaction: WalletTransaction): string {
 /** A coloured circle with the person's first letter. */
 function Avatar({ email, size = "h-11 w-11 text-base" }: { email: string; size?: string }) {
   // The same email always gets the same colour.
-  const colours = ["bg-indigo-100 text-indigo-700", "bg-emerald-100 text-emerald-700", "bg-amber-100 text-amber-700", "bg-rose-100 text-rose-700", "bg-sky-100 text-sky-700"];
+  const colours = ["bg-violet-100 text-violet-700", "bg-lime-100 text-lime-700", "bg-amber-100 text-amber-700", "bg-rose-100 text-rose-700", "bg-sky-100 text-sky-700"];
   const index = [...email].reduce((sum, letter) => sum + letter.charCodeAt(0), 0) % colours.length;
   return (
     <span
@@ -392,7 +392,7 @@ export default function Wallet({ payLink = null }: { payLink?: PayLink | null })
           <button
             type="button"
             onClick={() => setIsSettingAmount(true)}
-            className="mt-4 w-full rounded-xl border border-dashed border-zinc-300 px-4 py-3 text-sm font-medium text-zinc-700 hover:border-indigo-400"
+            className="mt-4 w-full rounded-xl border border-dashed border-zinc-300 px-4 py-3 text-sm font-medium text-zinc-700 hover:border-emerald-400"
           >
             Set an amount
           </button>
@@ -460,7 +460,7 @@ export default function Wallet({ payLink = null }: { payLink?: PayLink | null })
               autoComplete="off"
               value={otherEmail}
               onChange={(event) => setOtherEmail(event.target.value)}
-              className="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="mt-1 w-full rounded-xl border border-zinc-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
             />
             <button type="submit" className={`${primaryButtonClass} mt-3`}>
               Continue
@@ -470,7 +470,7 @@ export default function Wallet({ payLink = null }: { payLink?: PayLink | null })
           <button
             type="button"
             onClick={() => setIsTypingEmail(true)}
-            className="mt-4 w-full rounded-xl border border-dashed border-zinc-300 px-4 py-3 text-sm font-medium text-zinc-700 hover:border-indigo-400"
+            className="mt-4 w-full rounded-xl border border-dashed border-zinc-300 px-4 py-3 text-sm font-medium text-zinc-700 hover:border-emerald-400"
           >
             + Someone else
           </button>
@@ -510,8 +510,8 @@ export default function Wallet({ payLink = null }: { payLink?: PayLink | null })
               className={
                 chipClass +
                 (note === quickNote
-                  ? " border-indigo-600 bg-indigo-600 text-white"
-                  : " border-zinc-300 bg-white hover:border-indigo-400")
+                  ? " border-emerald-600 bg-emerald-600 text-white"
+                  : " border-zinc-300 bg-white hover:border-emerald-400")
               }
             >
               {quickNote}
@@ -588,15 +588,15 @@ export default function Wallet({ payLink = null }: { payLink?: PayLink | null })
     <div className="space-y-6">
       <section
         aria-labelledby="balance-heading"
-        className="rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-700 p-6 text-white shadow-lg"
+        className="rounded-3xl bg-gradient-to-br from-emerald-600 to-teal-700 p-6 text-white shadow-lg"
       >
-        <h2 id="balance-heading" className="text-sm font-medium text-indigo-100">
+        <h2 id="balance-heading" className="text-sm font-medium text-emerald-100">
           Balance
         </h2>
         <p className="mt-1 text-5xl font-semibold tracking-tight">
           {formatMoney(wallet.balance, wallet.currency)}
         </p>
-        <p className="mt-2 text-xs text-indigo-100">
+        <p className="mt-2 text-xs text-emerald-100">
           Pretend money, for demonstration. Nothing here is connected to a real bank.
         </p>
         <div className="mt-6 flex max-w-sm justify-between gap-2">
@@ -644,7 +644,7 @@ export default function Wallet({ payLink = null }: { payLink?: PayLink | null })
                   type="button"
                   disabled={isBusy}
                   onClick={() => handlePayDebt(debt)}
-                  className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:bg-zinc-300"
+                  className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:bg-zinc-300"
                 >
                   Pay {formatMoney(debt.amount, wallet.currency)}
                 </button>
@@ -679,7 +679,7 @@ export default function Wallet({ payLink = null }: { payLink?: PayLink | null })
                     type="button"
                     disabled={isBusy}
                     onClick={() => handlePayRequest(request)}
-                    className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:bg-zinc-300"
+                    className="flex-1 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:bg-zinc-300"
                   >
                     Pay {formatMoney(request.amount, wallet.currency)}
                   </button>

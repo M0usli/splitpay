@@ -34,7 +34,7 @@ export default function AmountPad({ value, onChange, quickAmounts, label }: Amou
       aria-label={label}
       tabIndex={0}
       onKeyDown={handleKeyDown}
-      className="rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
+      className="rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
     >
       {/* aria-live makes screen readers say the amount as it changes. */}
       <p aria-live="polite" className="text-center text-5xl font-semibold tracking-tight">
@@ -51,8 +51,8 @@ export default function AmountPad({ value, onChange, quickAmounts, label }: Amou
             className={
               "rounded-full border px-4 py-1.5 text-sm font-medium transition-colors " +
               (value === amount
-                ? "border-indigo-600 bg-indigo-600 text-white"
-                : "border-zinc-300 bg-white hover:border-indigo-400")
+                ? "border-emerald-600 bg-emerald-600 text-white"
+                : "border-zinc-300 bg-white hover:border-emerald-400")
             }
           >
             ${amount}
