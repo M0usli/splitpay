@@ -14,6 +14,7 @@ from app.routers import (
     receipts,
     recurring,
     stats,
+    wallet,
 )
 
 settings = get_settings()
@@ -43,3 +44,4 @@ app.include_router(stats.router)
 app.include_router(household.router)
 app.include_router(recurring.router)
 app.include_router(bank.router)
+app.include_router(wallet.router)

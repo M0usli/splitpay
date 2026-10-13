@@ -7,6 +7,7 @@ from app.models.household import Household, Settlement
 from app.models.receipt import Receipt
 from app.models.recurring import RecurringExpense
 from app.models.user import User, UserSession
+from app.models.wallet import Wallet, WalletTransfer
 
 __all__ = [
     "BankConnection",
@@ -20,4 +21,6 @@ __all__ = [
     "Settlement",
     "User",
     "UserSession",
+    "Wallet",
+    "WalletTransfer",
 ]

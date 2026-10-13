@@ -112,8 +112,18 @@ def fake_llm() -> FakeLlmClient:
 
 @pytest.fixture
 def test_settings(tmp_path: Path) -> Settings:
-    """Settings for tests: uploads go to a temporary folder, and there is no API key."""
-    return Settings(upload_dir=tmp_path / "uploads", anthropic_api_key="")
+    """Settings for tests: uploads go to a temporary folder, and there are no keys.
+
+    The keys are blanked on purpose. Settings reads the environment, so
+    without this the tests would behave differently on a machine whose .env
+    has real keys in it.
+    """
+    return Settings(
+        upload_dir=tmp_path / "uploads",
+        anthropic_api_key="",
+        plaid_client_id="",
+        plaid_secret="",
+    )
 
 
 @pytest.fixture
