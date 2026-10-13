@@ -81,6 +81,9 @@ Added in version 3 (in progress):
 - **Notifications.** A bell in the nav bar counts unread messages such as
   "alex sent you $20.00" or "jo declined your request for $7.00". Opening
   the page marks them read.
+- **Monthly statement.** Download this month's or last month's wallet
+  history as a CSV file, with opening and closing balances and the balance
+  after every line.
 - **Pay bills.** Save a company (electricity, internet, mobile; all made
   up) with your account number, pay it from the wallet, and get a receipt
   with a reference number for every payment.
@@ -242,6 +245,7 @@ with pretend transactions. The app cannot be pointed at real accounts.
 | PUT | `/wallet/pin` | Create the PIN, or change it by giving the current one |
 | GET | `/wallet/limits` | The daily sending limit and how much is left today |
 | GET | `/wallet/transactions` | Money in and out, newest first |
+| GET | `/wallet/statement?month=YYYY-MM` | One month of history as a CSV file, with a running balance |
 | POST | `/wallet/requests` | Ask another user for money; nothing moves yet |
 | GET | `/wallet/requests` | Requests the user made or received, newest first |
 | POST | `/wallet/requests/{id}/pay` | Pay a request from the wallet (only the person asked) |
@@ -338,6 +342,7 @@ receipt-tracker/
 │   │   ├── billers.py      the made-up companies a bill can be paid to
 │   │   ├── identity.py     the identity check (simulated KYC)
 │   │   ├── pin.py          the payment PIN: checking it, counting wrong tries, locking
+│   │   ├── statement.py    one month of the ledger as a CSV file
 │   │   ├── spending.py     the one function every payment goes through, and the daily limits
 │   │   ├── routers/        the HTTP endpoints
 │   │   ├── schemas/        Pydantic request and response shapes
@@ -432,6 +437,10 @@ receipt-tracker/
   there is never one without the other, and a repeated request does not
   notify twice. There is no live connection to the browser: the bell's
   number is fetched again each time the user moves to another page.
+- **A statement cannot run code in a spreadsheet.** Notes and emails are
+  written by users, and a spreadsheet runs any cell that starts with `=`,
+  `+`, `-` or `@` as a formula. The statement puts an apostrophe in front
+  of such cells so they stay plain text (CSV injection).
 - **Only what is needed is kept.** The document number is used for the
   check and then dropped; the database stores its last 4 characters. A real
   wallet would hand documents to a specialist provider and would also check
