@@ -340,6 +340,64 @@ test("paid requests are described as such in the history", async () => {
   expect(rows[1]).toHaveTextContent("jo paid your request");
 });
 
+// --- QR code pay ---
+
+test("my code shows a link that pays the user, for any amount", async () => {
+  render(<Wallet />);
+
+  await userEvent.click(await screen.findByRole("button", { name: "My code" }));
+
+  const code = within(screen.getByRole("region", { name: "My code" }));
+  expect(code.getByTitle("Code to pay sam@example.com")).toBeInTheDocument();
+  expect(code.getByText("http://localhost:3000/?pay=sam%40example.com")).toBeInTheDocument();
+  expect(code.getByText(/any amount/)).toBeInTheDocument();
+  // The test browser is on localhost, which a phone cannot open.
+  expect(code.getByText(/only works on this computer/)).toBeInTheDocument();
+});
+
+test("my code can ask for a fixed amount", async () => {
+  render(<Wallet />);
+
+  await userEvent.click(await screen.findByRole("button", { name: "My code" }));
+  await click("Set an amount");
+  await click("$20");
+
+  expect(
+    screen.getByText("http://localhost:3000/?pay=sam%40example.com&amount=20"),
+  ).toBeInTheDocument();
+});
+
+test("a scanned code with an amount opens the confirm step, and nothing is sent yet", async () => {
+  render(<Wallet payLink={{ toEmail: "alex@example.com", amount: "12.50" }} />);
+
+  const confirm = within(await screen.findByRole("region", { name: "Confirm" }));
+  expect(confirm.getByText("$12.50")).toBeInTheDocument();
+  expect(confirm.getByText("alex@example.com")).toBeInTheDocument();
+  expect(sendMoney).not.toHaveBeenCalled();
+
+  await click("Confirm and send");
+
+  expect(sendMoney).toHaveBeenCalledWith(
+    expect.objectContaining({ toEmail: "alex@example.com", amount: "12.50", note: null }),
+    expect.stringMatching(/^[0-9a-f]{32}$/),
+  );
+});
+
+test("a scanned code without an amount asks how much", async () => {
+  render(<Wallet payLink={{ toEmail: "alex@example.com", amount: null }} />);
+
+  const step = within(await screen.findByRole("region", { name: "Send money" }));
+  expect(step.getByText("How much?")).toBeInTheDocument();
+  expect(step.getByText("alex@example.com")).toBeInTheDocument();
+});
+
+test("scanning your own code explains that it cannot be paid", async () => {
+  render(<Wallet payLink={{ toEmail: "sam@example.com", amount: "5" }} />);
+
+  expect(await screen.findByText("This is your own code")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Confirm and send" })).not.toBeInTheDocument();
+});
+
 // --- adding money ---
 
 test("adding money takes two taps: an amount and the button", async () => {
