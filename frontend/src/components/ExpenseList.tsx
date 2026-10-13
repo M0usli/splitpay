@@ -130,7 +130,7 @@ export default function ExpenseList() {
           ) : (
             <>
               No expenses yet.{" "}
-              <Link href="/" className="font-medium underline">
+              <Link href="/upload" className="font-medium underline">
                 Upload a receipt
               </Link>{" "}
               or{" "}

@@ -160,7 +160,7 @@ test("not enough money shows the reason and a link to the wallet", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent("You do not have enough money");
   expect(screen.getByRole("link", { name: "Add money to your wallet" })).toHaveAttribute(
     "href",
-    "/wallet",
+    "/",
   );
 });
 

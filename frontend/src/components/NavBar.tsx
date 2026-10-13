@@ -7,8 +7,8 @@ import { useAuth } from "@/components/AuthProvider";
 import { logout } from "@/lib/api";
 
 const links = [
-  { href: "/wallet", label: "Wallet" },
-  { href: "/", label: "Upload" },
+  { href: "/", label: "Wallet" },
+  { href: "/upload", label: "Upload" },
   { href: "/expenses", label: "Expenses" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/household", label: "Split bill" },

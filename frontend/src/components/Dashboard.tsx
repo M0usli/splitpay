@@ -147,7 +147,7 @@ export default function Dashboard() {
         ) : (
           <p className="text-sm text-zinc-600">
             No expenses in the last 6 months.{" "}
-            <Link href="/" className="font-medium underline">
+            <Link href="/upload" className="font-medium underline">
               Upload a receipt
             </Link>{" "}
             to get started.

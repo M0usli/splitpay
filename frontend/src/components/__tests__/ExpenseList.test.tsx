@@ -73,7 +73,7 @@ test("invites the user to add something when there are no expenses", async () =>
   render(<ExpenseList />);
 
   expect(await screen.findByText(/No expenses yet/)).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Upload a receipt" })).toHaveAttribute("href", "/");
+  expect(screen.getByRole("link", { name: "Upload a receipt" })).toHaveAttribute("href", "/upload");
 });
 
 test("shows the error when the list cannot be loaded", async () => {

@@ -173,7 +173,7 @@ export default function SplitBill() {
       {alert}
       {actionError?.includes("enough money") && (
         <p className="text-sm">
-          <Link href="/wallet" className="font-medium underline">
+          <Link href="/" className="font-medium underline">
             Add money to your wallet
           </Link>
         </p>
