@@ -8,6 +8,7 @@ import {
   declineMoneyRequest,
   getBalance,
   getHousehold,
+  getIdentity,
   getWallet,
   listMoneyRequests,
   listWalletTransactions,
@@ -16,6 +17,7 @@ import {
   requestMoney,
   sendMoney,
   topUpWallet,
+  type Identity,
   type MoneyRequest,
   type TransferResult,
   type WalletTransaction,
@@ -33,6 +35,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   declineMoneyRequest: vi.fn(),
   getBalance: vi.fn(),
   getHousehold: vi.fn(),
+  getIdentity: vi.fn(),
   getWallet: vi.fn(),
   listMoneyRequests: vi.fn(),
   listWalletTransactions: vi.fn(),
@@ -72,6 +75,15 @@ const RECEIVED: WalletTransaction = {
 
 const RESULT: TransferResult = { transaction: SENT, balance: "70.00" };
 
+const VERIFIED: Identity = {
+  status: "verified",
+  full_name: "Sam Example",
+  document_type: "passport",
+  document_last4: "4567",
+  rejection_reason: null,
+};
+const UNVERIFIED: Identity = { ...VERIFIED, status: "unverified", full_name: null };
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(getWallet).mockResolvedValue({ balance: "75.50", currency: "CAD" });
@@ -93,6 +105,8 @@ beforeEach(() => {
     members: [],
     payments: [],
   });
+  // Sam has passed the identity check unless a test says otherwise.
+  vi.mocked(getIdentity).mockResolvedValue(VERIFIED);
   // No requests are waiting unless a test says so.
   vi.mocked(listMoneyRequests).mockResolvedValue([]);
   vi.mocked(topUpWallet).mockResolvedValue(RESULT);
@@ -408,6 +422,71 @@ test("scanning your own code explains that it cannot be paid", async () => {
 
   expect(await screen.findByText("This is your own code")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Confirm and send" })).not.toBeInTheDocument();
+});
+
+// --- the identity check ---
+
+test("a verified user sees a badge and no reminder", async () => {
+  render(<Wallet />);
+
+  const balance = within(await screen.findByRole("region", { name: "Balance" }));
+  expect(balance.getByText("✓ Verified")).toBeInTheDocument();
+  expect(
+    screen.queryByRole("region", { name: "Verify your identity to send money" }),
+  ).not.toBeInTheDocument();
+});
+
+test("an unverified user is reminded, with a link to the check", async () => {
+  vi.mocked(getIdentity).mockResolvedValue(UNVERIFIED);
+  render(<Wallet />);
+
+  const reminder = within(
+    await screen.findByRole("region", { name: "Verify your identity to send money" }),
+  );
+  expect(reminder.getByRole("link", { name: "Verify now" })).toHaveAttribute("href", "/verify");
+  expect(screen.queryByText("✓ Verified")).not.toBeInTheDocument();
+});
+
+test("an unverified user who taps Send is told to verify first", async () => {
+  vi.mocked(getIdentity).mockResolvedValue(UNVERIFIED);
+  render(<Wallet />);
+
+  await userEvent.click(await screen.findByRole("button", { name: "Send" }));
+
+  expect(screen.getByText("Verify your identity first")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Send to alex@example.com" })).not.toBeInTheDocument();
+});
+
+test("an unverified user can still add money and ask for it", async () => {
+  vi.mocked(getIdentity).mockResolvedValue(UNVERIFIED);
+  render(<Wallet />);
+
+  await userEvent.click(await screen.findByRole("button", { name: "Request" }));
+  expect(screen.getByText("Who are you asking?")).toBeInTheDocument();
+  await click("Back");
+  await click("Add money");
+  expect(screen.getByRole("region", { name: "Add money" })).toBeInTheDocument();
+});
+
+test("a scanned code opened by an unverified user asks them to verify, and sends nothing", async () => {
+  vi.mocked(getIdentity).mockResolvedValue(UNVERIFIED);
+  render(<Wallet payLink={{ toEmail: "alex@example.com", amount: "12.50" }} />);
+
+  expect(await screen.findByText("Verify your identity first")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Confirm and send" })).not.toBeInTheDocument();
+});
+
+test("a one-tap payment refused for identity links to the check", async () => {
+  samOwesKim();
+  vi.mocked(payFromWallet).mockRejectedValue(
+    new Error("Verify your identity before sending money."),
+  );
+  render(<Wallet />);
+
+  await userEvent.click(await screen.findByRole("button", { name: "Pay $13.18" }));
+
+  const alert = within(await screen.findByRole("alert"));
+  expect(alert.getByRole("link", { name: "Verify your identity" })).toHaveAttribute("href", "/verify");
 });
 
 // --- adding money ---

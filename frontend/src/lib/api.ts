@@ -34,6 +34,9 @@ export type Wallet = Schemas["WalletRead"];
 export type WalletTransaction = Schemas["TransactionRead"];
 export type TransferResult = Schemas["TransferResult"];
 export type MoneyRequest = Schemas["MoneyRequestRead"];
+export type Identity = Schemas["IdentityRead"];
+export type IdentitySubmit = Schemas["IdentitySubmit"];
+export type DocumentType = Schemas["DocumentType"];
 export type Biller = Schemas["BillerRead"];
 export type SavedBiller = Schemas["SavedBillerRead"];
 export type BillPayment = Schemas["BillPaymentRead"];
@@ -293,6 +296,16 @@ export function listWalletTransactions(): Promise<WalletTransaction[]> {
  */
 export function topUpWallet(amount: string, requestId: string): Promise<TransferResult> {
   return request("/wallet/top-up", jsonRequest("POST", { amount, idempotency_key: requestId }));
+}
+
+/** Where the user's identity check stands: unverified, verified or rejected. */
+export function getIdentity(): Promise<Identity> {
+  return request("/identity");
+}
+
+/** Send details for an identity check. The answer comes back at once. */
+export function submitIdentity(details: IdentitySubmit): Promise<Identity> {
+  return request("/identity", jsonRequest("POST", details));
 }
 
 /** The (made-up) companies a bill can be paid to. */

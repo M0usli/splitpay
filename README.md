@@ -69,6 +69,12 @@ Added in version 3 (in progress):
 - **Request money.** Ask another user for an amount. They see it on their
   Wallet page with Pay and Decline buttons; the person who asked can cancel
   it while it is waiting.
+- **Identity check before sending (simulated KYC).** A new user can add and
+  receive money, but sending, paying a request, paying a debt and paying a
+  bill are refused until they pass a short identity check: name, date of
+  birth, and a document. The check is a simulation with two rules (18 or
+  older; a document number ending in 0000 is always rejected, to show that
+  path). No real document is ever asked for.
 - **Pay bills.** Save a company (electricity, internet, mobile; all made
   up) with your account number, pay it from the wallet, and get a receipt
   with a reference number for every payment.
@@ -238,6 +244,8 @@ with pretend transactions. The app cannot be pointed at real accounts.
 | DELETE | `/bills/saved/{id}` | Remove a saved biller; receipts are kept |
 | POST | `/bills/pay` | Pay a bill from the wallet and get its receipt |
 | GET | `/bills/payments` | The user's bill receipts, newest first |
+| GET | `/identity` | Where the user's identity check stands |
+| POST | `/identity` | Submit details for an identity check; decided at once |
 
 Every `/receipts`, `/expenses` and `/stats` endpoint needs a login and works
 only on the logged-in user's own rows.
@@ -317,6 +325,7 @@ receipt-tracker/
 │   │   ├── bank/           the bank-data interface and the Plaid sandbox client
 │   │   ├── wallet.py       the ledger: moving pretend money between wallets
 │   │   ├── billers.py      the made-up companies a bill can be paid to
+│   │   ├── identity.py     the identity check and the VerifiedUser rule for sending money
 │   │   ├── routers/        the HTTP endpoints
 │   │   ├── schemas/        Pydantic request and response shapes
 │   │   ├── models/         SQLAlchemy database tables
@@ -327,7 +336,7 @@ receipt-tracker/
 │   └── tests/
 ├── frontend/
 │   └── src/
-│       ├── app/            pages (Wallet, Bills, Upload, Review, Expenses, Dashboard, Split bill, Recurring, Bank, Log in, Sign up)
+│       ├── app/            pages (Wallet, Bills, Verify, Upload, Review, Expenses, Dashboard, Split bill, Recurring, Bank, Log in, Sign up)
 │       ├── components/     React components and their tests
 │       └── lib/            API client, generated types, formatting helpers
 ├── eval/                   test receipts, labels and results
@@ -392,6 +401,16 @@ receipt-tracker/
   ends as paid, declined or cancelled. The backend locks the request's row
   while it changes, so Pay tapped on two devices at the same moment moves
   the money once, and a finished request cannot change again.
+- **The identity rule lives on the server, in one place.** The four
+  endpoints that take money out of a wallet ask for a `VerifiedUser`
+  instead of a `CurrentUser`. That one dependency answers 403 for anyone
+  not verified, so the rule cannot be skipped by calling the API directly,
+  and a new paying endpoint gets it by using the same type. The page also
+  explains it up front, but that is only for convenience.
+- **Only what is needed is kept.** The document number is used for the
+  check and then dropped; the database stores its last 4 characters. A real
+  wallet would hand documents to a specialist provider and would also check
+  sanctions lists, which this simulation does not do.
 - **A receipt is a copy, not a pointer.** A bill payment stores the
   company and account number itself instead of pointing to the saved biller,
   so the receipt still says what was paid after the biller is removed. The

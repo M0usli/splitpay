@@ -21,9 +21,10 @@ from sqlalchemy.orm import Session
 from app.auth import SESSION_COOKIE, hash_token
 from app.config import Settings, get_settings
 from app.database import get_db
+from app.enums import DocumentType, IdentityStatus
 from app.extraction import get_llm_client
 from app.main import app
-from app.models import Base, User, UserSession
+from app.models import Base, IdentityVerification, User, UserSession
 from app.ocr import get_ocr_engine
 
 MAIN_DATABASE_URL = make_url(get_settings().database_url)
@@ -146,8 +147,13 @@ def anonymous_client(
     app.dependency_overrides.clear()
 
 
-def log_in_as(client: TestClient, db_session: Session, email: str) -> User:
+def log_in_as(
+    client: TestClient, db_session: Session, email: str, *, verified: bool = True
+) -> User:
     """Create a user with a session and give the client its cookie.
+
+    The user has passed the identity check unless `verified=False`, because
+    most tests are about something else and need to send money.
 
     The rows are written directly, which skips the slow password hashing.
     The real register and login endpoints are tested in test_auth.py.
@@ -164,6 +170,19 @@ def log_in_as(client: TestClient, db_session: Session, email: str) -> User:
             expires_at=datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1),
         )
     )
+    db_session.commit()
+    if verified:
+        db_session.add(
+            IdentityVerification(
+                user_id=user.id,
+                status=IdentityStatus.VERIFIED,
+                full_name="Test User",
+                date_of_birth=datetime.date(1995, 1, 1),
+                country="CA",
+                document_type=DocumentType.PASSPORT,
+                document_last4="4567",
+            )
+        )
     db_session.commit()
     client.cookies.set(SESSION_COOKIE, token)
     return user

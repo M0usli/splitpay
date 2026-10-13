@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.auth import CurrentUser
 from app.database import DbSession
 from app.enums import TransferKind
+from app.identity import VerifiedUser
 from app.models import User, Wallet, WalletTransfer
 from app.schemas.wallet import (
     SendRequest,
@@ -89,7 +90,7 @@ def top_up(payload: TopUpRequest, db: DbSession, user: CurrentUser) -> TransferR
 
 
 @router.post("/send", response_model=TransferResult)
-def send_money(payload: SendRequest, db: DbSession, user: CurrentUser) -> TransferResult:
+def send_money(payload: SendRequest, db: DbSession, user: VerifiedUser) -> TransferResult:
     """Send money to another user, found by their email."""
     if payload.to_email == user.email:
         raise HTTPException(

@@ -12,6 +12,7 @@ from app.routers import (
     expenses,
     health,
     household,
+    identity,
     money_requests,
     receipts,
     recurring,
@@ -49,3 +50,4 @@ app.include_router(bank.router)
 app.include_router(wallet.router)
 app.include_router(money_requests.router)
 app.include_router(bills.router)
+app.include_router(identity.router)

@@ -22,6 +22,7 @@ import {
   type SharedExpense,
 } from "@/lib/api";
 import { formatMoney } from "@/lib/format";
+import { helpLinkFor } from "@/lib/helpLink";
 import { RequestIds } from "@/lib/requestId";
 
 type HouseholdData = {
@@ -125,6 +126,8 @@ export default function SplitBill() {
     );
   }
 
+  // "Not enough money" and "verify your identity" each have a page that fixes them.
+  const helpLink = helpLinkFor(actionError);
   const alert = actionError !== null && (
     <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
       {actionError}
@@ -171,10 +174,10 @@ export default function SplitBill() {
   return (
     <div className="space-y-6">
       {alert}
-      {actionError?.includes("enough money") && (
+      {helpLink !== null && (
         <p className="text-sm">
-          <Link href="/" className="font-medium underline">
-            Add money to your wallet
+          <Link href={helpLink.href} className="font-medium underline">
+            {helpLink.label}
           </Link>
         </p>
       )}
