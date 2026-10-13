@@ -56,4 +56,6 @@ class BillPaymentRead(BaseModel):
     account_number: str
     amount: Amount
     currency: str
+    # The expense made for this payment. Empty if the user deleted it since.
+    expense_id: int | None
     created_at: datetime.datetime

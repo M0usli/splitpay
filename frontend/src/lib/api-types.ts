@@ -1040,6 +1040,9 @@ export interface paths {
          * Pay Bill
          * @description Pay a bill from the wallet and write its receipt, together.
          *
+         *     The payment is also saved as an expense under Bills & Utilities, in the
+         *     same transaction, so it counts in the user's spending.
+         *
          *     The money goes to the outside-world wallet, the opposite of a top-up:
          *     it leaves the app, as it would when a real company is paid.
          */
@@ -1218,6 +1221,8 @@ export interface components {
             amount: string;
             /** Currency */
             currency: string;
+            /** Expense Id */
+            expense_id: number | null;
             /**
              * Created At
              * Format: date-time

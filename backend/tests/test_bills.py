@@ -213,3 +213,58 @@ def test_every_bills_endpoint_requires_a_login(
     anonymous_client: TestClient, method: str, path: str
 ):
     assert anonymous_client.request(method, path).status_code == 401
+
+
+# --- a paid bill is also an expense ---
+
+
+def test_a_paid_bill_becomes_an_expense(client: TestClient):
+    top_up(client, "100.00")
+    saved = save(client).json()
+
+    receipt = pay(client, saved["id"], "64.20").json()
+
+    expenses = client.get("/expenses").json()
+    assert len(expenses) == 1
+    expense = expenses[0]
+    assert receipt["expense_id"] == expense["id"]
+    assert (expense["merchant"], expense["total"], expense["category"], expense["currency"]) == (
+        "Northern Hydro",
+        "64.20",
+        "Bills & Utilities",
+        "CAD",
+    )
+    assert expense["notes"] == "Bill paid from the wallet. Account AB-1234."
+    assert expense["is_shared"] is False
+
+
+def test_a_double_tap_makes_one_expense(client: TestClient):
+    top_up(client, "100.00")
+    saved = save(client).json()
+    same_key = key()
+
+    pay(client, saved["id"], "30.00", same_key)
+    pay(client, saved["id"], "30.00", same_key)
+
+    assert len(client.get("/expenses").json()) == 1
+
+
+def test_a_refused_bill_makes_no_expense(client: TestClient):
+    saved = save(client).json()
+
+    assert pay(client, saved["id"], "30.00").status_code == 409
+
+    assert client.get("/expenses").json() == []
+
+
+def test_deleting_the_expense_keeps_the_receipt(client: TestClient):
+    top_up(client, "100.00")
+    saved = save(client).json()
+    receipt = pay(client, saved["id"], "30.00").json()
+
+    assert client.delete(f"/expenses/{receipt['expense_id']}").status_code == 204
+
+    kept = client.get("/bills/payments").json()[0]
+    assert (kept["id"], kept["expense_id"]) == (receipt["id"], None)
+    # Deleting the expense does not give the money back.
+    assert balance(client) == "70.00"

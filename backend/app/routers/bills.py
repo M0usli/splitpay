@@ -5,9 +5,10 @@ from sqlalchemy.exc import IntegrityError
 from app.auth import CurrentUser
 from app.billers import BILLERS, BILLERS_BY_CODE
 from app.database import DbSession
-from app.enums import TransferKind
-from app.models import BillPayment, SavedBiller
+from app.enums import Category, TransferKind
+from app.models import BillPayment, Expense, SavedBiller
 from app.pin import PayingUser
+from app.routers.recurring import Today
 from app.schemas.bill import (
     BillerRead,
     BillPay,
@@ -44,6 +45,7 @@ def to_payment_read(payment: BillPayment) -> BillPaymentRead:
         account_number=payment.account_number,
         amount=payment.amount,
         currency=payment.currency,
+        expense_id=payment.expense_id,
         created_at=payment.created_at,
     )
 
@@ -110,8 +112,11 @@ def remove_saved_biller(saved_id: int, db: DbSession, user: CurrentUser) -> None
 
 
 @router.post("/pay", response_model=BillPaymentRead, status_code=status.HTTP_201_CREATED)
-def pay_bill(payload: BillPay, db: DbSession, user: PayingUser) -> BillPaymentRead:
+def pay_bill(payload: BillPay, db: DbSession, user: PayingUser, today: Today) -> BillPaymentRead:
     """Pay a bill from the wallet and write its receipt, together.
+
+    The payment is also saved as an expense under Bills & Utilities, in the
+    same transaction, so it counts in the user's spending.
 
     The money goes to the outside-world wallet, the opposite of a top-up:
     it leaves the app, as it would when a real company is paid.
@@ -147,12 +152,24 @@ def pay_bill(payload: BillPay, db: DbSession, user: PayingUser) -> BillPaymentRe
                 status.HTTP_409_CONFLICT,
                 detail="This request id was already used for a different transfer",
             )
+        expense = Expense(
+            user_id=user.id,
+            merchant=BILLERS_BY_CODE[saved.biller_code].name,
+            date=today,
+            total=payload.amount,
+            currency=wallet.currency,
+            category=Category.BILLS_UTILITIES,
+            notes=f"Bill paid from the wallet. Account {saved.account_number}.",
+        )
+        db.add(expense)
+        db.flush()  # gives the expense its id, still inside the transaction
         payment = BillPayment(
             user_id=user.id,
             biller_code=saved.biller_code,
             account_number=saved.account_number,
             amount=payload.amount,
             currency=wallet.currency,
+            expense_id=expense.id,
             wallet_transfer_id=transfer.id,
         )
         db.add(payment)

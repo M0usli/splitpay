@@ -375,6 +375,15 @@ export default function Bills() {
         <p className="mt-3 text-center text-xs text-zinc-500">
           Pretend money and a made-up company. No real bill was paid.
         </p>
+        {payment.expense_id !== null && (
+          <p className="mt-2 text-center text-xs text-zinc-500">
+            Added to your{" "}
+            <Link href="/expenses" className="font-medium underline">
+              expenses
+            </Link>{" "}
+            under Bills &amp; Utilities.
+          </p>
+        )}
         {isNew && (
           <button type="button" onClick={() => open({ name: "home" })} className={`${primaryButtonClass} mt-4`}>
             Done

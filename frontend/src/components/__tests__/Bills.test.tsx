@@ -41,6 +41,7 @@ const RECEIPT: BillPayment = {
   account_number: "AB-1234",
   amount: "64.20",
   currency: "CAD",
+  expense_id: 9,
   created_at: "2026-10-13T09:00:00Z",
 };
 
@@ -193,6 +194,26 @@ test("not enough money shows the reason and a link to the wallet", async () => {
 
   expect(await screen.findByRole("alert")).toHaveTextContent("You do not have enough money");
   expect(screen.getByRole("link", { name: "Add money to your wallet" })).toHaveAttribute("href", "/");
+});
+
+test("the receipt says the bill was added to the expenses", async () => {
+  render(<Bills />);
+
+  await reviewFiftyDollars();
+  await click("Confirm and pay");
+  await enterPin();
+
+  const receipt = within(await screen.findByRole("region", { name: "Receipt" }));
+  expect(receipt.getByRole("link", { name: "expenses" })).toHaveAttribute("href", "/expenses");
+});
+
+test("a receipt whose expense was deleted does not mention it", async () => {
+  vi.mocked(listBillPayments).mockResolvedValue([{ ...RECEIPT, expense_id: null }]);
+  render(<Bills />);
+
+  await userEvent.click(await screen.findByRole("button", { name: "Receipt BP-000042" }));
+
+  expect(screen.queryByRole("link", { name: "expenses" })).not.toBeInTheDocument();
 });
 
 // --- receipts ---
