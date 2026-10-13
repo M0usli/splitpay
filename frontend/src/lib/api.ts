@@ -214,6 +214,21 @@ export function recordSettlement(toUserId: number, amount: string): Promise<Sett
   return request("/household/settlements", jsonRequest("POST", { to_user_id: toUserId, amount }));
 }
 
+/**
+ * Pay a housemate from the wallet. The money moves and the debt is marked
+ * as paid together. A repeat with the same `requestId` pays only once.
+ */
+export function payFromWallet(
+  toUserId: number,
+  amount: string,
+  requestId: string,
+): Promise<Settlement> {
+  return request(
+    "/household/pay",
+    jsonRequest("POST", { to_user_id: toUserId, amount, idempotency_key: requestId }),
+  );
+}
+
 export function deleteSettlement(id: number): Promise<void> {
   return request(`/household/settlements/${id}`, { method: "DELETE" });
 }

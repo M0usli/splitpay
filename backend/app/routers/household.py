@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import CurrentUser
 from app.database import DbSession
+from app.enums import TransferKind
 from app.extraction.schemas import DEFAULT_CURRENCY
 from app.models import Expense, Household, Settlement, User
 from app.schemas.expense import ExpenseRead
@@ -25,8 +26,10 @@ from app.schemas.household import (
     SharedExpenseRead,
     SplitPreviewRead,
     SplitPreviewRequest,
+    WalletPayment,
 )
 from app.splitting import ItemLine, net_balances, plan_payments, split_by_items
+from app.wallet import InsufficientFunds, get_or_create_wallet, move_money
 
 router = APIRouter(prefix="/household", tags=["household"])
 
@@ -248,6 +251,7 @@ def to_settlement_read(settlement: Settlement, members: dict[int, User]) -> Sett
         paid_to=MemberRead.model_validate(members[settlement.to_user_id]),
         amount=settlement.amount,
         currency=settlement.currency,
+        paid_from_wallet=settlement.wallet_transfer_id is not None,
         created_at=settlement.created_at,
     )
 
@@ -282,6 +286,66 @@ def record_settlement(
     return to_settlement_read(settlement, members)
 
 
+@router.post("/pay", response_model=SettlementRead, status_code=status.HTTP_201_CREATED)
+def pay_from_wallet(payload: WalletPayment, db: DbSession, user: CurrentUser) -> SettlementRead:
+    """Pay a housemate from the wallet and record the settlement, together.
+
+    Both changes are in one database transaction: the money moves and the
+    debt is marked as paid, or neither happens. There is never a moment
+    where the money has left but the debt is still shown.
+    """
+    household = get_household_or_404(db, user)
+    members = {member.id: member for member in get_members(db, household.id)}
+    if payload.to_user_id == user.id or payload.to_user_id not in members:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="A payment must go to another member of your household",
+        )
+
+    wallet = get_or_create_wallet(db, user)
+    recipient_wallet = get_or_create_wallet(db, members[payload.to_user_id])
+    try:
+        transfer = move_money(
+            db,
+            kind=TransferKind.SETTLEMENT,
+            source=wallet,
+            destination=recipient_wallet,
+            amount=payload.amount,
+            idempotency_key=payload.idempotency_key,
+            note="Split bill",
+        )
+    except InsufficientFunds as error:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(error)) from error
+
+    # A repeat of the same request (a double tap) finds the transfer already
+    # made, and the settlement that goes with it.
+    settlement = db.scalar(select(Settlement).where(Settlement.wallet_transfer_id == transfer.id))
+    if settlement is None:
+        same_request = (
+            transfer.from_wallet_id == wallet.id
+            and transfer.to_wallet_id == recipient_wallet.id
+            and transfer.amount == payload.amount
+            and transfer.kind == TransferKind.SETTLEMENT
+        )
+        if not same_request:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                detail="This request id was already used for a different transfer",
+            )
+        settlement = Settlement(
+            household_id=household.id,
+            from_user_id=user.id,
+            to_user_id=payload.to_user_id,
+            amount=payload.amount,
+            currency=wallet.currency,
+            wallet_transfer_id=transfer.id,
+        )
+        db.add(settlement)
+    db.commit()
+    db.refresh(settlement)
+    return to_settlement_read(settlement, members)
+
+
 @router.get("/settlements", response_model=list[SettlementRead])
 def list_settlements(db: DbSession, user: CurrentUser) -> list[SettlementRead]:
     household = get_household_or_404(db, user)
@@ -300,5 +364,13 @@ def delete_settlement(settlement_id: int, db: DbSession, user: CurrentUser) -> N
     settlement = db.get(Settlement, settlement_id)
     if settlement is None or settlement.from_user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Payment not found")
+    if settlement.wallet_transfer_id is not None:
+        # The money really moved, and the ledger is never rewritten. Undoing
+        # it means the other person sending the money back.
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail="This was paid from your wallet, so it cannot be undone here. "
+            "Ask them to send the money back.",
+        )
     db.delete(settlement)
     db.commit()

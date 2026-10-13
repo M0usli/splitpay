@@ -4,9 +4,11 @@ import { beforeEach, expect, test, vi } from "vitest";
 
 import Wallet from "@/components/Wallet";
 import {
+  getBalance,
   getHousehold,
   getWallet,
   listWalletTransactions,
+  payFromWallet,
   sendMoney,
   topUpWallet,
   type TransferResult,
@@ -21,9 +23,11 @@ vi.mock("@/components/AuthProvider", () => ({
 }));
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
+  getBalance: vi.fn(),
   getHousehold: vi.fn(),
   getWallet: vi.fn(),
   listWalletTransactions: vi.fn(),
+  payFromWallet: vi.fn(),
   sendMoney: vi.fn(),
   topUpWallet: vi.fn(),
 }));
@@ -70,6 +74,13 @@ beforeEach(() => {
       { id: 1, email: "sam@example.com" },
       { id: 4, email: "kim@example.com" },
     ],
+  });
+  // Nobody owes anything unless a test says so.
+  vi.mocked(getBalance).mockResolvedValue({
+    currency: "CAD",
+    shared_expense_count: 0,
+    members: [],
+    payments: [],
   });
   vi.mocked(topUpWallet).mockResolvedValue(RESULT);
   vi.mocked(sendMoney).mockResolvedValue(RESULT);
@@ -124,6 +135,80 @@ test("the wallet still works when the household cannot be loaded", async () => {
   render(<Wallet />);
 
   expect(await screen.findByText("$75.50")).toBeInTheDocument();
+});
+
+// --- paying what is owed from split bills ---
+
+/** Sam owes Kim 13.18 from a split bill; Kim owes Sam nothing. */
+function samOwesKim() {
+  const sam = { id: 1, email: "sam@example.com" };
+  const kim = { id: 4, email: "kim@example.com" };
+  vi.mocked(getBalance).mockResolvedValue({
+    currency: "CAD",
+    shared_expense_count: 1,
+    members: [],
+    payments: [{ owed_by: sam, owed_to: kim, amount: "13.18" }],
+  });
+}
+
+test("shows exactly what is owed from split bills, on a pay button", async () => {
+  samOwesKim();
+  render(<Wallet />);
+
+  const owe = within(await screen.findByRole("region", { name: "You owe, from split bills" }));
+  expect(owe.getByText("kim@example.com")).toBeInTheDocument();
+  expect(owe.getByRole("button", { name: "Pay $13.18" })).toBeInTheDocument();
+});
+
+test("one tap pays the debt from the wallet", async () => {
+  samOwesKim();
+  render(<Wallet />);
+
+  await userEvent.click(await screen.findByRole("button", { name: "Pay $13.18" }));
+
+  expect(payFromWallet).toHaveBeenCalledWith(4, "13.18", expect.stringMatching(/^[0-9a-f]{32}$/));
+  expect(await screen.findByRole("status")).toHaveTextContent(
+    "You paid kim@example.com $13.18 for your split bill.",
+  );
+});
+
+test("nothing is shown when the user owes nothing, or is the one owed", async () => {
+  const sam = { id: 1, email: "sam@example.com" };
+  const kim = { id: 4, email: "kim@example.com" };
+  vi.mocked(getBalance).mockResolvedValue({
+    currency: "CAD",
+    shared_expense_count: 1,
+    members: [],
+    payments: [{ owed_by: kim, owed_to: sam, amount: "13.18" }],
+  });
+  render(<Wallet />);
+
+  await screen.findByRole("region", { name: "Balance" });
+  expect(screen.queryByRole("region", { name: "You owe, from split bills" })).not.toBeInTheDocument();
+});
+
+test("a debt that cannot be paid says why", async () => {
+  samOwesKim();
+  vi.mocked(payFromWallet).mockRejectedValue(
+    new Error("You do not have enough money in your wallet."),
+  );
+  render(<Wallet />);
+
+  await userEvent.click(await screen.findByRole("button", { name: "Pay $13.18" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("You do not have enough money");
+});
+
+test("split-bill payments are described as such in the history", async () => {
+  vi.mocked(listWalletTransactions).mockResolvedValue([
+    { ...SENT, id: 8, kind: "settlement", note: "Split bill" },
+    { ...RECEIVED, id: 9, kind: "settlement", note: "Split bill" },
+  ]);
+  render(<Wallet />);
+
+  const rows = within(await screen.findByRole("region", { name: "History" })).getAllByRole("listitem");
+  expect(rows[0]).toHaveTextContent("Paid alex for split bill");
+  expect(rows[1]).toHaveTextContent("jo paid you for split bill");
 });
 
 // --- adding money ---

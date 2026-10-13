@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { useAuth } from "@/components/AuthProvider";
 import {
@@ -12,6 +13,7 @@ import {
   leaveHousehold,
   listSettlements,
   listSharedExpenses,
+  payFromWallet,
   recordSettlement,
   type Balance,
   type Household,
@@ -20,6 +22,7 @@ import {
   type SharedExpense,
 } from "@/lib/api";
 import { formatMoney } from "@/lib/format";
+import { RequestIds } from "@/lib/requestId";
 
 type HouseholdData = {
   household: Household;
@@ -72,6 +75,10 @@ export default function SplitBill() {
   const [status, setStatus] = useState<Status>({ state: "loading" });
   const [actionError, setActionError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  // useRef keeps the same object for as long as the page is open, so a
+  // second tap on a Pay button finds the id the first tap made.
+  const payIds = useRef(new RequestIds());
 
   // Load the page's data once, when the page opens.
   useEffect(() => {
@@ -96,6 +103,7 @@ export default function SplitBill() {
   async function run(action: () => Promise<unknown>) {
     setIsBusy(true);
     setActionError(null);
+    setNotice(null);
     try {
       await action();
       setStatus(toStatus(await loadHouseholdData()));
@@ -141,6 +149,16 @@ export default function SplitBill() {
   const nameOf = (member: Member) => (member.id === myId ? "You" : member.email);
   const myNet = balance.members.find((entry) => entry.member.id === myId)?.net ?? "0.00";
 
+  /** Pay a housemate from the wallet: the money moves and the debt is settled together. */
+  async function handlePay(to: Member, amount: string) {
+    const action = `pay-${to.id}-${amount}`;
+    await run(async () => {
+      await payFromWallet(to.id, amount, payIds.current.idFor(action));
+      payIds.current.forget(action);
+      setNotice(`You paid ${to.email} ${formatMoney(amount, "CAD")} from your wallet.`);
+    });
+  }
+
   function handleLeave() {
     const confirmed = window.confirm(
       "Leave this household? What you owe or are owed here will no longer be counted.",
@@ -153,6 +171,18 @@ export default function SplitBill() {
   return (
     <div className="space-y-6">
       {alert}
+      {actionError?.includes("enough money") && (
+        <p className="text-sm">
+          <Link href="/wallet" className="font-medium underline">
+            Add money to your wallet
+          </Link>
+        </p>
+      )}
+      {notice !== null && (
+        <p role="status" className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+          {notice}
+        </p>
+      )}
 
       <section className={cardClass} aria-labelledby="household-heading">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -203,14 +233,25 @@ export default function SplitBill() {
                   <strong>{formatMoney(payment.amount, balance.currency)}</strong>
                 </span>
                 {payment.owed_by.id === myId && (
-                  <button
-                    type="button"
-                    disabled={isBusy}
-                    onClick={() => run(() => recordSettlement(payment.owed_to.id, payment.amount))}
-                    className={smallButtonClass}
-                  >
-                    I paid this
-                  </button>
+                  <span className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isBusy}
+                      onClick={() => handlePay(payment.owed_to, payment.amount)}
+                      className={buttonClass}
+                    >
+                      Pay {formatMoney(payment.amount, balance.currency)} from wallet
+                    </button>
+                    {/* For money handed over outside the app, such as cash. Nothing moves in the wallet. */}
+                    <button
+                      type="button"
+                      disabled={isBusy}
+                      onClick={() => run(() => recordSettlement(payment.owed_to.id, payment.amount))}
+                      className={smallButtonClass}
+                    >
+                      I paid another way
+                    </button>
+                  </span>
                 )}
               </li>
             ))}
@@ -273,9 +314,14 @@ export default function SplitBill() {
                 <span>
                   {nameOf(settlement.paid_by)} paid {nameOf(settlement.paid_to).replace("You", "you")}{" "}
                   <strong>{formatMoney(settlement.amount, settlement.currency)}</strong>
-                  <span className="text-zinc-500"> on {settlement.created_at.slice(0, 10)}</span>
+                  <span className="text-zinc-500">
+                    {" "}
+                    on {settlement.created_at.slice(0, 10)}
+                    {settlement.paid_from_wallet ? ", from wallet" : ""}
+                  </span>
                 </span>
-                {settlement.paid_by.id === myId && (
+                {/* A wallet payment really moved money, so it cannot be undone here. */}
+                {settlement.paid_by.id === myId && !settlement.paid_from_wallet && (
                   <button
                     type="button"
                     disabled={isBusy}

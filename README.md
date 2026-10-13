@@ -64,8 +64,11 @@ Added in version 2:
 Added in version 3 (in progress):
 
 - **Wallet.** Every user has a balance of pretend money. Add money, send it
-  to another user by email with a confirm step, and see the history of money
-  in and out.
+  to another user with a confirm step, and see the history of money in and
+  out. The page is button-first: a number pad, one-tap amounts and people.
+- **Pay what you owe in one tap.** The Wallet and Split bill pages show the
+  exact amount owed to each housemate on a button that pays it from the
+  wallet.
 
 ## How it works
 
@@ -197,7 +200,8 @@ with pretend transactions. The app cannot be pointed at real accounts.
 | GET | `/household/expenses` | The household's shared expenses, with who paid and each person's part |
 | GET | `/household/balance` | Each member's position and the payments that settle it, `?currency=` |
 | POST | `/household/split-preview` | What each member would pay for a receipt split item by item (saves nothing) |
-| POST | `/household/settlements` | Record that the logged-in user paid a member back |
+| POST | `/household/pay` | Pay a member from the wallet: moves the money and settles the debt together |
+| POST | `/household/settlements` | Record a pay-back made outside the app |
 | GET | `/household/settlements` | The household's recorded payments |
 | DELETE | `/household/settlements/{id}` | Undo a payment (only the person who recorded it) |
 | POST, GET | `/recurring` | Create or list monthly recurring costs |
@@ -357,6 +361,11 @@ receipt-tracker/
   sender's wallet row while it checks the balance, so simultaneous sends
   cannot overspend, and each request carries an idempotency key so a double
   tap or a retry moves money once.
+- **Paying a debt is one transaction.** Paying a housemate from the wallet
+  writes the ledger transfer and the settlement in the same database
+  transaction, so the money moves and the debt is cleared together or not at
+  all. A wallet payment cannot be undone in the app, because the ledger is
+  never rewritten.
 - **Sending money takes two steps.** The Wallet page shows the amount and
   the recipient back for confirmation before anything moves. The request id
   (idempotency key) is made when that confirm step opens, so pressing

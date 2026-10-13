@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import AmountPad from "@/components/AmountPad";
 import { useAuth } from "@/components/AuthProvider";
 import {
+  getBalance,
   getHousehold,
   getWallet,
   listWalletTransactions,
+  payFromWallet,
   sendMoney,
   topUpWallet,
   type Wallet as WalletInfo,
@@ -15,14 +17,18 @@ import {
 } from "@/lib/api";
 import { finishAmount, isPositiveAmount } from "@/lib/amountInput";
 import { formatMoney } from "@/lib/format";
-import { newRequestId } from "@/lib/requestId";
+import { newRequestId, RequestIds } from "@/lib/requestId";
 
 type WalletData = {
   wallet: WalletInfo;
   transactions: WalletTransaction[];
   /** Emails of the people in the user's household, without the user. */
   housemates: string[];
+  /** What the user owes housemates from split bills, worked out by the backend. */
+  debts: Debt[];
 };
+
+type Debt = { toId: number; toEmail: string; amount: string };
 
 type Status =
   | { state: "loading" }
@@ -63,7 +69,16 @@ async function loadWalletData(myEmail: string): Promise<WalletData> {
   const housemates = (household?.members ?? [])
     .map((member) => member.email)
     .filter((email) => email !== myEmail);
-  return { wallet, transactions, housemates };
+  // The split-bill balance says exactly who should pay whom.
+  const balance = household === null ? null : await getBalance().catch(() => null);
+  const debts = (balance?.payments ?? [])
+    .filter((payment) => payment.owed_by.email === myEmail)
+    .map((payment) => ({
+      toId: payment.owed_to.id,
+      toEmail: payment.owed_to.email,
+      amount: payment.amount,
+    }));
+  return { wallet, transactions, housemates, debts };
 }
 
 /** People to offer as one-tap choices: housemates first, then people from the history. */
@@ -86,6 +101,9 @@ function describe(transaction: WalletTransaction): string {
     return "Added money";
   }
   const who = transaction.counterparty === null ? "someone" : shortName(transaction.counterparty);
+  if (transaction.kind === "settlement") {
+    return transaction.direction === "out" ? `Paid ${who} for split bill` : `${who} paid you for split bill`;
+  }
   return transaction.direction === "out" ? `Sent to ${who}` : `Received from ${who}`;
 }
 
@@ -153,6 +171,8 @@ export default function Wallet() {
   const [note, setNote] = useState("");
   const [otherEmail, setOtherEmail] = useState("");
   const [isTypingEmail, setIsTypingEmail] = useState(false);
+  // Remembers the request id of each Pay button until its payment succeeds.
+  const payIds = useRef(new RequestIds());
 
   useEffect(() => {
     let isCurrent = true;
@@ -210,6 +230,16 @@ export default function Wallet() {
     });
   }
 
+  /** One tap: pay a housemate exactly what the split bill says is owed. */
+  function handlePayDebt(debt: Debt) {
+    const action = `pay-${debt.toId}-${debt.amount}`;
+    void run(async () => {
+      await payFromWallet(debt.toId, debt.amount, payIds.current.idFor(action));
+      payIds.current.forget(action);
+      return `You paid ${debt.toEmail} ${formatMoney(debt.amount, "CAD")} for your split bill.`;
+    });
+  }
+
   function handleOtherEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     open({ name: "send-amount", toEmail: otherEmail.trim().toLowerCase() });
@@ -226,7 +256,7 @@ export default function Wallet() {
     );
   }
 
-  const { wallet, transactions } = status.data;
+  const { wallet, transactions, debts } = status.data;
   const people = suggestPeople(status.data);
 
   const alert = actionError !== null && (
@@ -427,6 +457,39 @@ export default function Wallet() {
         <p role="status" className="rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
           ✓ {notice}
         </p>
+      )}
+
+      {actionError !== null && (
+        <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+          {actionError}
+        </p>
+      )}
+
+      {debts.length > 0 && (
+        <section className={cardClass} aria-labelledby="owe-heading">
+          <h2 id="owe-heading" className="text-sm font-semibold text-zinc-700">
+            You owe, from split bills
+          </h2>
+          <ul className="mt-2 divide-y divide-zinc-100">
+            {debts.map((debt) => (
+              <li key={debt.toId} className="flex flex-wrap items-center gap-3 py-3">
+                <Avatar email={debt.toEmail} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{shortName(debt.toEmail)}</p>
+                  <p className="truncate text-xs text-zinc-500">{debt.toEmail}</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={isBusy}
+                  onClick={() => handlePayDebt(debt)}
+                  className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:bg-zinc-300"
+                >
+                  Pay {formatMoney(debt.amount, wallet.currency)}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {people.length > 0 && (
