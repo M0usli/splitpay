@@ -29,6 +29,7 @@ class TransferKind(StrEnum):
     SEND = "send"  # one user sent money to another
     SETTLEMENT = "settlement"  # paying back a split-bill debt to a housemate
     REQUEST = "request"  # paying a request for money
+    BILL = "bill"  # paying a bill; the money leaves to the outside world
 
 
 class MoneyRequestStatus(StrEnum):

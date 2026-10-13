@@ -8,6 +8,7 @@ import { logout } from "@/lib/api";
 
 const links = [
   { href: "/", label: "Wallet" },
+  { href: "/bills", label: "Bills" },
   { href: "/upload", label: "Upload" },
   { href: "/expenses", label: "Expenses" },
   { href: "/dashboard", label: "Dashboard" },
