@@ -84,6 +84,9 @@ Added in version 3 (in progress):
 - **Monthly statement.** Download this month's or last month's wallet
   history as a CSV file, with opening and closing balances and the balance
   after every line.
+- **Two-step login.** On the Security page, scan a QR code with an
+  authenticator app (Google Authenticator, Microsoft Authenticator). After
+  that, logging in needs the password and the app's 6-digit code.
 - **Pay bills.** Save a company (electricity, internet, mobile; all made
   up) with your account number, pay it from the wallet, and get a receipt
   with a reference number for every payment. Each paid bill is also saved as
@@ -258,6 +261,10 @@ with pretend transactions. The app cannot be pointed at real accounts.
 | DELETE | `/bills/saved/{id}` | Remove a saved biller; receipts are kept |
 | POST | `/bills/pay` | Pay a bill from the wallet and get its receipt |
 | GET | `/bills/payments` | The user's bill receipts, newest first |
+| GET | `/auth/two-step` | Whether two-step login is on |
+| POST | `/auth/two-step/setup` | A new secret for the authenticator app (not active yet) |
+| POST | `/auth/two-step/enable` | Turn it on with a first code |
+| POST | `/auth/two-step/disable` | Turn it off with a current code |
 | GET | `/notifications` | The user's notifications, newest first, and how many are unread |
 | POST | `/notifications/read` | Mark all of them read |
 | GET | `/identity` | Where the user's identity check stands |
@@ -344,6 +351,7 @@ receipt-tracker/
 │   │   ├── identity.py     the identity check (simulated KYC)
 │   │   ├── pin.py          the payment PIN: checking it, counting wrong tries, locking
 │   │   ├── statement.py    one month of the ledger as a CSV file
+│   │   ├── totp.py         the 6-digit codes of an authenticator app (RFC 6238)
 │   │   ├── spending.py     the one function every payment goes through, and the daily limits
 │   │   ├── routers/        the HTTP endpoints
 │   │   ├── schemas/        Pydantic request and response shapes
@@ -442,6 +450,15 @@ receipt-tracker/
   written by users, and a spreadsheet runs any cell that starts with `=`,
   `+`, `-` or `@` as a formula. The statement puts an apostrophe in front
   of such cells so they stay plain text (CSV injection).
+- **Two-step login is the standard algorithm, written out.** `app/totp.py`
+  is TOTP (RFC 6238) in about twenty lines, checked against the RFC's own
+  test values. A code is accepted for its 30-second step and one either
+  side, and only once: the last used step is stored, so a code someone saw
+  cannot be replayed. The secret cannot be hashed, because the server needs
+  it to work out the codes; a production system would encrypt it. There are
+  no recovery codes and no limit on wrong codes yet. If you lock yourself
+  out of a local account, remove its row:
+  `docker compose exec postgres psql -U receipts -d receipts -c "DELETE FROM two_step_logins WHERE user_id = (SELECT id FROM users WHERE email = 'you@example.com')"`
 - **Only what is needed is kept.** The document number is used for the
   check and then dropped; the database stores its last 4 characters. A real
   wallet would hand documents to a specialist provider and would also check

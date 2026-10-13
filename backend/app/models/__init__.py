@@ -10,6 +10,7 @@ from app.models.notification import Notification
 from app.models.pin import PaymentPin
 from app.models.receipt import Receipt
 from app.models.recurring import RecurringExpense
+from app.models.two_step import TwoStepLogin
 from app.models.user import User, UserSession
 from app.models.wallet import MoneyRequest, Wallet, WalletTransfer
 
@@ -29,6 +30,7 @@ __all__ = [
     "RecurringExpense",
     "SavedBiller",
     "Settlement",
+    "TwoStepLogin",
     "User",
     "UserSession",
     "Wallet",

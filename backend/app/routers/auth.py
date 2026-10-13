@@ -13,6 +13,7 @@ from app.auth import (
 from app.config import SettingsDep
 from app.database import DbSession
 from app.models import User
+from app.routers.two_step import WRONG_CODE, accept_code, get_two_step
 from app.schemas.user import Credentials, UserCreate, UserRead
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -43,6 +44,19 @@ def login(payload: Credentials, response: Response, db: DbSession, settings: Set
     # emails have an account.
     if user is None or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Wrong email or password")
+
+    # Second step, only for accounts that turned it on: something the user
+    # has (their phone), after something they know (the password).
+    # 403, not 401: the password was right, but that is not enough here.
+    two_step = get_two_step(db, user, lock=True)
+    if two_step is not None and two_step.is_enabled:
+        if payload.code is None:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                detail="Enter the 6-digit code from your authenticator app.",
+            )
+        if not accept_code(two_step, payload.code):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, detail=WRONG_CODE)
 
     start_session(db, user, response, settings)
     return user

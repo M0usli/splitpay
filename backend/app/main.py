@@ -19,6 +19,7 @@ from app.routers import (
     receipts,
     recurring,
     stats,
+    two_step,
     wallet,
 )
 
@@ -43,6 +44,7 @@ register_error_handlers(app)
 
 app.include_router(health.router)
 app.include_router(auth.router)
+app.include_router(two_step.router)
 app.include_router(expenses.router)
 app.include_router(receipts.router)
 app.include_router(stats.router)

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import PinEntry, { PIN_LENGTH } from "@/components/PinEntry";
 import StepHeader from "@/components/StepHeader";
+import TwoStepLogin from "@/components/TwoStepLogin";
 import { getPin, setPin, type PinStatus } from "@/lib/api";
 
 type Status =
@@ -31,7 +32,7 @@ function errorMessage(error: unknown): string {
 
 const TITLES = { current: "Your current PIN", new: "Choose a new PIN", repeat: "Enter it again" };
 
-/** The Security page: the payment PIN. */
+/** The Security page: the payment PIN and two-step login. */
 export default function Security() {
   const [status, setStatus] = useState<Status>({ state: "loading" });
   const [stage, setStage] = useState<Stage>({ name: "idle" });
@@ -171,6 +172,8 @@ export default function Security() {
           {pin.is_set ? "Change PIN" : "Create a PIN"}
         </button>
       </section>
+
+      <TwoStepLogin />
     </div>
   );
 }
