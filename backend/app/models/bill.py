@@ -53,6 +53,9 @@ class BillPayment(Base):
     account_number: Mapped[str] = mapped_column(String(20))
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     currency: Mapped[str] = mapped_column(String(3))
+    # The expense made for this payment, so it shows up in the user's spending.
+    # SET NULL: the user may delete the expense; the receipt stays.
+    expense_id: Mapped[int | None] = mapped_column(ForeignKey("expenses.id", ondelete="SET NULL"))
     # The ledger row that moved the money. unique=True: one receipt per transfer.
     wallet_transfer_id: Mapped[int] = mapped_column(ForeignKey("wallet_transfers.id"), unique=True)
     created_at: Mapped[datetime.datetime] = mapped_column(

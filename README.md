@@ -86,7 +86,8 @@ Added in version 3 (in progress):
   after every line.
 - **Pay bills.** Save a company (electricity, internet, mobile; all made
   up) with your account number, pay it from the wallet, and get a receipt
-  with a reference number for every payment.
+  with a reference number for every payment. Each paid bill is also saved as
+  an expense under Bills & Utilities, so it counts on the Dashboard.
 - **Get paid with a QR code.** "My code" on the Wallet page shows a QR code,
   for any amount or a fixed one. Someone scans it with their phone camera and
   lands on the send screen filled in, ready to confirm. Scanning from a phone
@@ -445,6 +446,10 @@ receipt-tracker/
   check and then dropped; the database stores its last 4 characters. A real
   wallet would hand documents to a specialist provider and would also check
   sanctions lists, which this simulation does not do.
+- **A paid bill is one transaction with three rows.** The ledger transfer,
+  the receipt and the expense are written together, so a bill never shows in
+  the wallet without showing in the spending, and a double tap makes one of
+  each. Deleting the expense later keeps the receipt and does not refund.
 - **A receipt is a copy, not a pointer.** A bill payment stores the
   company and account number itself instead of pointing to the saved biller,
   so the receipt still says what was paid after the biller is removed. The
