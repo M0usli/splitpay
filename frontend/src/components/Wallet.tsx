@@ -5,13 +5,19 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "rea
 import AmountPad from "@/components/AmountPad";
 import { useAuth } from "@/components/AuthProvider";
 import {
+  cancelMoneyRequest,
+  declineMoneyRequest,
   getBalance,
   getHousehold,
   getWallet,
+  listMoneyRequests,
   listWalletTransactions,
   payFromWallet,
+  payMoneyRequest,
+  requestMoney,
   sendMoney,
   topUpWallet,
+  type MoneyRequest,
   type Wallet as WalletInfo,
   type WalletTransaction,
 } from "@/lib/api";
@@ -26,6 +32,8 @@ type WalletData = {
   housemates: string[];
   /** What the user owes housemates from split bills, worked out by the backend. */
   debts: Debt[];
+  /** Requests for money that are still waiting for an answer. */
+  requests: MoneyRequest[];
 };
 
 type Debt = { toId: number; toEmail: string; amount: string };
@@ -35,12 +43,15 @@ type Status =
   | { state: "loaded"; data: WalletData }
   | { state: "error"; message: string };
 
-/** Which screen of the page is showing. Sending goes through three steps. */
+/** Sending and requesting share the "who" and "how much" steps. */
+type Mode = "send" | "request";
+
+/** Which screen of the page is showing. Sending goes through three steps, requesting through two. */
 type View =
   | { name: "home" }
   | { name: "add" }
-  | { name: "send-who" }
-  | { name: "send-amount"; toEmail: string }
+  | { name: "who"; mode: Mode }
+  | { name: "amount"; mode: Mode; toEmail: string }
   // The request id is made when this step opens and reused if Confirm is tapped twice.
   | { name: "send-confirm"; toEmail: string; amount: string; note: string | null; requestId: string };
 
@@ -60,9 +71,10 @@ function errorMessage(error: unknown): string {
 }
 
 async function loadWalletData(myEmail: string): Promise<WalletData> {
-  const [wallet, transactions, household] = await Promise.all([
+  const [wallet, transactions, allRequests, household] = await Promise.all([
     getWallet(),
     listWalletTransactions(),
+    listMoneyRequests(),
     // The household only offers shortcuts. If it cannot be loaded, the wallet still works.
     getHousehold().catch(() => null),
   ]);
@@ -78,7 +90,9 @@ async function loadWalletData(myEmail: string): Promise<WalletData> {
       toEmail: payment.owed_to.email,
       amount: payment.amount,
     }));
-  return { wallet, transactions, housemates, debts };
+  // Paid ones are in the history; declined and cancelled ones are finished.
+  const requests = allRequests.filter((request) => request.status === "pending");
+  return { wallet, transactions, housemates, debts, requests };
 }
 
 /** People to offer as one-tap choices: housemates first, then people from the history. */
@@ -103,6 +117,9 @@ function describe(transaction: WalletTransaction): string {
   const who = transaction.counterparty === null ? "someone" : shortName(transaction.counterparty);
   if (transaction.kind === "settlement") {
     return transaction.direction === "out" ? `Paid ${who} for split bill` : `${who} paid you for split bill`;
+  }
+  if (transaction.kind === "request") {
+    return transaction.direction === "out" ? `Paid ${who}'s request` : `${who} paid your request`;
   }
   return transaction.direction === "out" ? `Sent to ${who}` : `Received from ${who}`;
 }
@@ -240,9 +257,43 @@ export default function Wallet() {
     });
   }
 
-  function handleOtherEmail(event: FormEvent<HTMLFormElement>) {
+  /** Ask someone for money. Nothing moves, so there is no confirm step. */
+  function handleRequest(toEmail: string) {
+    const value = finishAmount(amount);
+    const chosenNote = note === "" ? null : note;
+    void run(async () => {
+      await requestMoney({ toEmail, amount: value, note: chosenNote });
+      return `You asked ${toEmail} for ${formatMoney(value, "CAD")}.`;
+    });
+  }
+
+  /** One tap: pay a request someone sent. */
+  function handlePayRequest(request: MoneyRequest) {
+    const action = `request-${request.id}`;
+    void run(async () => {
+      await payMoneyRequest(request.id, payIds.current.idFor(action));
+      payIds.current.forget(action);
+      return `You paid ${request.counterparty} ${formatMoney(request.amount, "CAD")}.`;
+    });
+  }
+
+  function handleDecline(request: MoneyRequest) {
+    void run(async () => {
+      await declineMoneyRequest(request.id);
+      return `You declined the request from ${request.counterparty}.`;
+    });
+  }
+
+  function handleCancel(request: MoneyRequest) {
+    void run(async () => {
+      await cancelMoneyRequest(request.id);
+      return `Your request to ${request.counterparty} was cancelled.`;
+    });
+  }
+
+  function handleOtherEmail(event: FormEvent<HTMLFormElement>, mode: Mode) {
     event.preventDefault();
-    open({ name: "send-amount", toEmail: otherEmail.trim().toLowerCase() });
+    open({ name: "amount", mode, toEmail: otherEmail.trim().toLowerCase() });
   }
 
   if (status.state === "loading") {
@@ -256,7 +307,9 @@ export default function Wallet() {
     );
   }
 
-  const { wallet, transactions, debts } = status.data;
+  const { wallet, transactions, debts, requests } = status.data;
+  const incoming = requests.filter((request) => request.direction === "incoming");
+  const outgoing = requests.filter((request) => request.direction === "outgoing");
   const people = suggestPeople(status.data);
 
   const alert = actionError !== null && (
@@ -283,18 +336,25 @@ export default function Wallet() {
     );
   }
 
-  if (view.name === "send-who") {
+  if (view.name === "who") {
+    const { mode } = view;
     return (
-      <section className={`${cardClass} mx-auto max-w-md`} aria-label="Send money">
-        <StepHeader title="Who are you sending to?" onBack={() => open({ name: "home" })} />
+      <section
+        className={`${cardClass} mx-auto max-w-md`}
+        aria-label={mode === "send" ? "Send money" : "Request money"}
+      >
+        <StepHeader
+          title={mode === "send" ? "Who are you sending to?" : "Who are you asking?"}
+          onBack={() => open({ name: "home" })}
+        />
         {people.length > 0 && (
           <ul className="grid grid-cols-3 gap-3">
             {people.map((email) => (
               <li key={email}>
                 <button
                   type="button"
-                  onClick={() => open({ name: "send-amount", toEmail: email })}
-                  aria-label={`Send to ${email}`}
+                  onClick={() => open({ name: "amount", mode, toEmail: email })}
+                  aria-label={mode === "send" ? `Send to ${email}` : `Request from ${email}`}
                   className="flex w-full flex-col items-center gap-1.5 rounded-xl p-2 hover:bg-zinc-100"
                 >
                   <Avatar email={email} />
@@ -306,12 +366,12 @@ export default function Wallet() {
         )}
         {people.length === 0 && (
           <p className="text-sm text-zinc-500">
-            People you send to, and the people in your household, will appear here as buttons.
+            People you send money to, and the people in your household, will appear here as buttons.
           </p>
         )}
 
         {isTypingEmail ? (
-          <form onSubmit={handleOtherEmail} className="mt-4">
+          <form onSubmit={(event) => handleOtherEmail(event, mode)} className="mt-4">
             <label htmlFor="other-email" className="block text-sm font-medium text-zinc-700">
               Their email
             </label>
@@ -342,18 +402,24 @@ export default function Wallet() {
     );
   }
 
-  if (view.name === "send-amount") {
-    const { toEmail } = view;
+  if (view.name === "amount") {
+    const { toEmail, mode } = view;
     return (
-      <section className={`${cardClass} mx-auto max-w-md`} aria-label="Send money">
-        <StepHeader title="How much?" onBack={() => open({ name: "send-who" })} />
+      <section
+        className={`${cardClass} mx-auto max-w-md`}
+        aria-label={mode === "send" ? "Send money" : "Request money"}
+      >
+        <StepHeader title="How much?" onBack={() => open({ name: "who", mode })} />
+        {alert}
         <div className="mb-4 flex items-center gap-3 rounded-xl bg-zinc-50 p-3">
           <Avatar email={toEmail} size="h-9 w-9 text-sm" />
           <p className="min-w-0 truncate text-sm">
-            To <strong>{toEmail}</strong>
+            {mode === "send" ? "To" : "From"} <strong>{toEmail}</strong>
           </p>
         </div>
-        <AmountPad value={amount} onChange={setAmount} quickAmounts={SEND_AMOUNTS} label="Amount to send" />
+        <AmountPad value={amount} onChange={setAmount} quickAmounts={SEND_AMOUNTS}
+          label={mode === "send" ? "Amount to send" : "Amount to request"}
+        />
 
         <p className="mt-5 text-sm font-medium text-zinc-700">What is it for? (optional)</p>
         <div className="mt-2 flex flex-wrap gap-2">
@@ -376,22 +442,35 @@ export default function Wallet() {
           ))}
         </div>
 
-        <button
-          type="button"
-          disabled={!isPositiveAmount(amount)}
-          onClick={() =>
-            setView({
-              name: "send-confirm",
-              toEmail,
-              amount: finishAmount(amount),
-              note: note === "" ? null : note,
-              requestId: newRequestId(),
-            })
-          }
-          className={`${primaryButtonClass} mt-5`}
-        >
-          Review
-        </button>
+        {mode === "send" ? (
+          <button
+            type="button"
+            disabled={!isPositiveAmount(amount)}
+            onClick={() =>
+              setView({
+                name: "send-confirm",
+                toEmail,
+                amount: finishAmount(amount),
+                note: note === "" ? null : note,
+                requestId: newRequestId(),
+              })
+            }
+            className={`${primaryButtonClass} mt-5`}
+          >
+            Review
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={isBusy || !isPositiveAmount(amount)}
+            onClick={() => handleRequest(toEmail)}
+            className={`${primaryButtonClass} mt-5`}
+          >
+            {isPositiveAmount(amount)
+              ? `Request ${formatMoney(finishAmount(amount), wallet.currency)}`
+              : "Request"}
+          </button>
+        )}
       </section>
     );
   }
@@ -400,7 +479,7 @@ export default function Wallet() {
     const send = view;
     return (
       <section className={`${cardClass} mx-auto max-w-md text-center`} aria-label="Confirm">
-        <StepHeader title="Check and confirm" onBack={() => setView({ name: "send-amount", toEmail: send.toEmail })} />
+        <StepHeader title="Check and confirm" onBack={() => setView({ name: "amount", mode: "send", toEmail: send.toEmail })} />
         {alert}
         <div className="flex justify-center">
           <Avatar email={send.toEmail} size="h-16 w-16 text-2xl" />
@@ -447,8 +526,11 @@ export default function Wallet() {
           <ActionButton label="Add money" onClick={() => open({ name: "add" })}>
             +
           </ActionButton>
-          <ActionButton label="Send" onClick={() => open({ name: "send-who" })}>
+          <ActionButton label="Send" onClick={() => open({ name: "who", mode: "send" })}>
             ↗
+          </ActionButton>
+          <ActionButton label="Request" onClick={() => open({ name: "who", mode: "request" })}>
+            ↙
           </ActionButton>
         </div>
       </section>
@@ -492,6 +574,84 @@ export default function Wallet() {
         </section>
       )}
 
+      {incoming.length > 0 && (
+        <section className={cardClass} aria-labelledby="incoming-heading">
+          <h2 id="incoming-heading" className="text-sm font-semibold text-zinc-700">
+            Requests for you
+          </h2>
+          <ul className="mt-2 divide-y divide-zinc-100">
+            {incoming.map((request) => (
+              <li key={request.id} className="flex flex-wrap items-center gap-3 py-3">
+                <Avatar email={request.counterparty} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium" title={request.counterparty}>
+                    {shortName(request.counterparty)} asks for{" "}
+                    {formatMoney(request.amount, wallet.currency)}
+                  </p>
+                  <p className="truncate text-xs text-zinc-500">
+                    {request.created_at.slice(0, 10)}
+                    {request.note !== null ? ` · ${request.note}` : ""}
+                  </p>
+                </div>
+                {/* Two buttons do not fit beside the name on a phone, so they get their own row. */}
+                <span className="flex w-full gap-2">
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={() => handlePayRequest(request)}
+                    className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:bg-zinc-300"
+                  >
+                    Pay {formatMoney(request.amount, wallet.currency)}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={() => handleDecline(request)}
+                    aria-label={`Decline the request from ${request.counterparty}`}
+                    className="flex-1 rounded-xl border border-zinc-300 px-4 py-2.5 text-sm font-medium hover:bg-zinc-100 disabled:opacity-50"
+                  >
+                    Decline
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {outgoing.length > 0 && (
+        <section className={cardClass} aria-labelledby="outgoing-heading">
+          <h2 id="outgoing-heading" className="text-sm font-semibold text-zinc-700">
+            You asked for
+          </h2>
+          <ul className="mt-2 divide-y divide-zinc-100">
+            {outgoing.map((request) => (
+              <li key={request.id} className="flex flex-wrap items-center gap-3 py-3">
+                <Avatar email={request.counterparty} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium" title={request.counterparty}>
+                    {formatMoney(request.amount, wallet.currency)} from {shortName(request.counterparty)}
+                  </p>
+                  <p className="truncate text-xs text-zinc-500">
+                    Waiting · {request.created_at.slice(0, 10)}
+                    {request.note !== null ? ` · ${request.note}` : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={isBusy}
+                  onClick={() => handleCancel(request)}
+                  aria-label={`Cancel the request to ${request.counterparty}`}
+                  className="rounded-xl border border-zinc-300 px-4 py-2.5 text-sm font-medium hover:bg-zinc-100 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {people.length > 0 && (
         <section className={cardClass} aria-labelledby="quick-heading">
           <h2 id="quick-heading" className="text-sm font-semibold text-zinc-700">
@@ -502,7 +662,7 @@ export default function Wallet() {
               <li key={email}>
                 <button
                   type="button"
-                  onClick={() => open({ name: "send-amount", toEmail: email })}
+                  onClick={() => open({ name: "amount", mode: "send", toEmail: email })}
                   aria-label={`Send to ${email}`}
                   className="flex w-20 flex-col items-center gap-1.5 rounded-xl p-2 hover:bg-zinc-100"
                 >

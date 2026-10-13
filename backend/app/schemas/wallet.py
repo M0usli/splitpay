@@ -4,7 +4,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from app.enums import TransferKind
+from app.enums import MoneyRequestStatus, TransferKind
 from app.schemas.stats import Amount
 
 # The most that can be moved at once. It is pretend money, but a limit keeps
@@ -65,3 +65,36 @@ class TransferResult(BaseModel):
 
     transaction: TransactionRead
     balance: Amount
+
+
+class MoneyRequestCreate(BaseModel):
+    """Request body for asking another user for money."""
+
+    to_email: EmailStr
+    amount: TransferAmount
+    note: str | None = Field(default=None, max_length=200)
+
+    @field_validator("to_email")
+    @classmethod
+    def lowercase_email(cls, email: str) -> str:
+        return email.lower()
+
+
+class MoneyRequestPay(BaseModel):
+    """Request body for paying a request. The id makes a double tap pay once."""
+
+    idempotency_key: IdempotencyKey
+
+
+class MoneyRequestRead(BaseModel):
+    """A request for money, seen from the logged-in user's side."""
+
+    id: int
+    # "incoming": someone asked me. "outgoing": I asked someone.
+    direction: Literal["incoming", "outgoing"]
+    # The other person's email.
+    counterparty: str
+    amount: Amount
+    note: str | None
+    status: MoneyRequestStatus
+    created_at: datetime.datetime

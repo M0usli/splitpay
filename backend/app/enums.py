@@ -28,6 +28,16 @@ class TransferKind(StrEnum):
     TOP_UP = "top_up"  # pretend money added from outside
     SEND = "send"  # one user sent money to another
     SETTLEMENT = "settlement"  # paying back a split-bill debt to a housemate
+    REQUEST = "request"  # paying a request for money
+
+
+class MoneyRequestStatus(StrEnum):
+    """Where a request for money stands."""
+
+    PENDING = "pending"  # waiting for the person who was asked
+    PAID = "paid"
+    DECLINED = "declined"  # the person who was asked said no
+    CANCELLED = "cancelled"  # the person who asked took it back
 
 
 class ReceiptStatus(StrEnum):

@@ -4,13 +4,19 @@ import { beforeEach, expect, test, vi } from "vitest";
 
 import Wallet from "@/components/Wallet";
 import {
+  cancelMoneyRequest,
+  declineMoneyRequest,
   getBalance,
   getHousehold,
   getWallet,
+  listMoneyRequests,
   listWalletTransactions,
   payFromWallet,
+  payMoneyRequest,
+  requestMoney,
   sendMoney,
   topUpWallet,
+  type MoneyRequest,
   type TransferResult,
   type WalletTransaction,
 } from "@/lib/api";
@@ -23,11 +29,16 @@ vi.mock("@/components/AuthProvider", () => ({
 }));
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
+  cancelMoneyRequest: vi.fn(),
+  declineMoneyRequest: vi.fn(),
   getBalance: vi.fn(),
   getHousehold: vi.fn(),
   getWallet: vi.fn(),
+  listMoneyRequests: vi.fn(),
   listWalletTransactions: vi.fn(),
   payFromWallet: vi.fn(),
+  payMoneyRequest: vi.fn(),
+  requestMoney: vi.fn(),
   sendMoney: vi.fn(),
   topUpWallet: vi.fn(),
 }));
@@ -82,6 +93,8 @@ beforeEach(() => {
     members: [],
     payments: [],
   });
+  // No requests are waiting unless a test says so.
+  vi.mocked(listMoneyRequests).mockResolvedValue([]);
   vi.mocked(topUpWallet).mockResolvedValue(RESULT);
   vi.mocked(sendMoney).mockResolvedValue(RESULT);
 });
@@ -209,6 +222,122 @@ test("split-bill payments are described as such in the history", async () => {
   const rows = within(await screen.findByRole("region", { name: "History" })).getAllByRole("listitem");
   expect(rows[0]).toHaveTextContent("Paid alex for split bill");
   expect(rows[1]).toHaveTextContent("jo paid you for split bill");
+});
+
+// --- requesting money ---
+
+/** Alex asked Sam for 12.00. */
+const FROM_ALEX: MoneyRequest = {
+  id: 5,
+  direction: "incoming",
+  counterparty: "alex@example.com",
+  amount: "12.00",
+  note: "Food",
+  status: "pending",
+  created_at: "2026-10-13T09:00:00Z",
+};
+/** Sam asked Kim for 40.00. */
+const TO_KIM: MoneyRequest = {
+  ...FROM_ALEX,
+  id: 6,
+  direction: "outgoing",
+  counterparty: "kim@example.com",
+  amount: "40.00",
+  note: "Rent",
+};
+
+test("asking for money takes a person, an amount and one tap", async () => {
+  render(<Wallet />);
+
+  await userEvent.click(await screen.findByRole("button", { name: "Request" }));
+  await click("Request from alex@example.com");
+  await click("$20");
+  await click("Food");
+  await click("Request $20.00");
+
+  expect(requestMoney).toHaveBeenCalledWith({
+    toEmail: "alex@example.com",
+    amount: "20",
+    note: "Food",
+  });
+  expect(sendMoney).not.toHaveBeenCalled();
+  expect(await screen.findByRole("status")).toHaveTextContent(
+    "You asked alex@example.com for $20.00.",
+  );
+});
+
+test("a request that cannot be made says why and stays on the step", async () => {
+  vi.mocked(requestMoney).mockRejectedValue(new Error("No account has this email"));
+  render(<Wallet />);
+
+  await userEvent.click(await screen.findByRole("button", { name: "Request" }));
+  await click("Request from alex@example.com");
+  await click("$5");
+  await click("Request $5.00");
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("No account has this email");
+  expect(screen.getByRole("region", { name: "Request money" })).toBeInTheDocument();
+});
+
+test("a request someone sent can be paid with one tap", async () => {
+  vi.mocked(listMoneyRequests).mockResolvedValue([FROM_ALEX]);
+  render(<Wallet />);
+
+  const forMe = within(await screen.findByRole("region", { name: "Requests for you" }));
+  expect(forMe.getByText(/alex asks for \$12\.00/)).toBeInTheDocument();
+  await userEvent.click(forMe.getByRole("button", { name: "Pay $12.00" }));
+
+  expect(payMoneyRequest).toHaveBeenCalledWith(5, expect.stringMatching(/^[0-9a-f]{32}$/));
+  expect(await screen.findByRole("status")).toHaveTextContent("You paid alex@example.com $12.00.");
+});
+
+test("a request someone sent can be declined", async () => {
+  vi.mocked(listMoneyRequests).mockResolvedValue([FROM_ALEX]);
+  render(<Wallet />);
+
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Decline the request from alex@example.com" }),
+  );
+
+  expect(declineMoneyRequest).toHaveBeenCalledWith(5);
+  expect(payMoneyRequest).not.toHaveBeenCalled();
+});
+
+test("a request the user made is shown as waiting and can be cancelled", async () => {
+  vi.mocked(listMoneyRequests).mockResolvedValue([TO_KIM]);
+  render(<Wallet />);
+
+  const asked = within(await screen.findByRole("region", { name: "You asked for" }));
+  expect(asked.getByText("$40.00 from kim")).toBeInTheDocument();
+  // The user cannot pay their own request.
+  expect(asked.queryByRole("button", { name: /Pay/ })).not.toBeInTheDocument();
+  await userEvent.click(asked.getByRole("button", { name: "Cancel the request to kim@example.com" }));
+
+  expect(cancelMoneyRequest).toHaveBeenCalledWith(6);
+});
+
+test("finished requests are not listed", async () => {
+  vi.mocked(listMoneyRequests).mockResolvedValue([
+    { ...FROM_ALEX, status: "declined" },
+    { ...TO_KIM, status: "paid" },
+  ]);
+  render(<Wallet />);
+
+  await screen.findByRole("region", { name: "Balance" });
+  expect(screen.queryByRole("region", { name: "Requests for you" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "You asked for" })).not.toBeInTheDocument();
+});
+
+test("paid requests are described as such in the history", async () => {
+  vi.mocked(listWalletTransactions).mockResolvedValue([
+    { ...SENT, id: 8, kind: "request" },
+    { ...RECEIVED, id: 9, kind: "request" },
+  ]);
+  render(<Wallet />);
+
+  const rows = within(await screen.findByRole("region", { name: "History" })).getAllByRole("listitem");
+  expect(rows[0]).toHaveTextContent("Paid alex's request");
+  expect(rows[1]).toHaveTextContent("jo paid your request");
 });
 
 // --- adding money ---
