@@ -14,6 +14,9 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   setPin: vi.fn(),
 }));
 
+// The two-step card loads its own data and has its own tests.
+vi.mock("@/components/TwoStepLogin", () => ({ default: () => null }));
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(getPin).mockResolvedValue({ is_set: false, locked_minutes: 0 });

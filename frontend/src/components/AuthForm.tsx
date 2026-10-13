@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
 import { useAuth } from "@/components/AuthProvider";
-import { login, register } from "@/lib/api";
+import { ApiError, login, register } from "@/lib/api";
 
 type AuthFormProps = {
   /** "login" for an existing account, "register" to create one. */
@@ -25,6 +25,9 @@ export default function AuthForm({ mode }: AuthFormProps) {
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set once the backend says this account has two-step login.
+  const [needsCode, setNeedsCode] = useState(false);
+  const [code, setCode] = useState("");
 
   const isRegister = mode === "register";
 
@@ -39,11 +42,19 @@ export default function AuthForm({ mode }: AuthFormProps) {
     setError(null);
     try {
       const credentials = { email: email.trim(), password };
-      const user = isRegister ? await register(credentials) : await login(credentials);
+      const user = isRegister
+        ? await register(credentials)
+        : await login(needsCode ? { ...credentials, code } : credentials);
       // Telling the app who is logged in makes RequireLogin open the home page.
       signIn(user);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Something went wrong");
+      // 403 on logging in means: the password was right, and this account
+      // also needs the code from its authenticator app.
+      if (!isRegister && caught instanceof ApiError && caught.status === 403) {
+        setNeedsCode(true);
+        setCode("");
+      }
       setIsSubmitting(false);
     }
   }
@@ -86,6 +97,28 @@ export default function AuthForm({ mode }: AuthFormProps) {
           </p>
         )}
       </div>
+
+      {needsCode && (
+        <div>
+          <label htmlFor="login-code" className={labelClass}>
+            6-digit code
+          </label>
+          <input
+            id="login-code"
+            required
+            autoFocus
+            // Shows the number keys on a phone, and lets the phone offer the code.
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            pattern="\d{6}"
+            maxLength={6}
+            value={code}
+            onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
+            className={inputClass}
+          />
+          <p className="mt-1 text-xs text-zinc-500">From the authenticator app on your phone.</p>
+        </div>
+      )}
 
       {error !== null && (
         <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">

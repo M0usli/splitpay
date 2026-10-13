@@ -35,6 +35,8 @@ export type WalletTransaction = Schemas["TransactionRead"];
 export type TransferResult = Schemas["TransferResult"];
 export type Limits = Schemas["LimitsRead"];
 export type PinStatus = Schemas["PinRead"];
+export type TwoStepStatus = Schemas["TwoStepRead"];
+export type TwoStepSetup = Schemas["TwoStepSetup"];
 export type Notification = Schemas["NotificationRead"];
 export type NotificationList = Schemas["NotificationList"];
 export type MoneyRequest = Schemas["MoneyRequestRead"];
@@ -160,6 +162,25 @@ export function register(credentials: Credentials): Promise<User> {
 
 export function login(credentials: Credentials): Promise<User> {
   return request("/auth/login", jsonRequest("POST", credentials));
+}
+
+/** Whether two-step login is on for the logged-in user. */
+export function getTwoStep(): Promise<TwoStepStatus> {
+  return request("/auth/two-step");
+}
+
+/** Start setting up two-step login: a new secret for the authenticator app. */
+export function startTwoStepSetup(): Promise<TwoStepSetup> {
+  return request("/auth/two-step/setup", { method: "POST" });
+}
+
+/** Turn two-step login on, with the first code from the authenticator app. */
+export function enableTwoStep(code: string): Promise<TwoStepStatus> {
+  return request("/auth/two-step/enable", jsonRequest("POST", { code }));
+}
+
+export function disableTwoStep(code: string): Promise<TwoStepStatus> {
+  return request("/auth/two-step/disable", jsonRequest("POST", { code }));
 }
 
 export function logout(): Promise<void> {

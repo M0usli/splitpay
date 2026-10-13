@@ -11,6 +11,9 @@ class Credentials(BaseModel):
     # The upper limit stops someone sending a huge password to keep the server
     # busy hashing it.
     password: str = Field(max_length=128)
+    # The 6-digit code from an authenticator app. Needed only by accounts
+    # that turned two-step login on.
+    code: str | None = Field(default=None, pattern=r"^\d{6}$")
 
     @field_validator("email")
     @classmethod
