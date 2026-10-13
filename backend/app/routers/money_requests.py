@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.auth import CurrentUser
 from app.database import DbSession
 from app.enums import MoneyRequestStatus, TransferKind
+from app.identity import VerifiedUser
 from app.models import MoneyRequest, User
 from app.schemas.wallet import MoneyRequestCreate, MoneyRequestPay, MoneyRequestRead
 from app.wallet import InsufficientFunds, get_or_create_wallet, move_money
@@ -100,7 +101,7 @@ def list_requests(db: DbSession, user: CurrentUser) -> list[MoneyRequestRead]:
 
 @router.post("/{request_id}/pay", response_model=MoneyRequestRead)
 def pay_request(
-    request_id: int, payload: MoneyRequestPay, db: DbSession, user: CurrentUser
+    request_id: int, payload: MoneyRequestPay, db: DbSession, user: VerifiedUser
 ) -> MoneyRequestRead:
     """Pay a request from the wallet. The money moves and the request is closed together."""
     request = get_pending_or_error(db, request_id, user=user, asked=True)

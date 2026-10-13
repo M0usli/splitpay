@@ -966,6 +966,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/identity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Identity
+         * @description Where the user's identity check stands.
+         */
+        get: operations["get_identity_identity_get"];
+        put?: never;
+        /**
+         * Submit Identity
+         * @description Submit details for an identity check. The answer is decided at once.
+         *
+         *     A rejected user may try again; a verified one cannot change their details.
+         */
+        post: operations["submit_identity_identity_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1135,6 +1161,12 @@ export interface components {
             /** Password */
             password: string;
         };
+        /**
+         * DocumentType
+         * @description The kind of document a user proves their identity with.
+         * @enum {string}
+         */
+        DocumentType: "passport" | "drivers_licence" | "national_id";
         /**
          * ExpenseCreate
          * @description Request body for creating an expense.
@@ -1343,6 +1375,45 @@ export interface components {
             invite_code: string;
             /** Members */
             members: components["schemas"]["MemberRead"][];
+        };
+        /**
+         * IdentityRead
+         * @description Where the logged-in user's identity check stands.
+         */
+        IdentityRead: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "unverified" | "verified" | "rejected";
+            /** Full Name */
+            full_name?: string | null;
+            document_type?: components["schemas"]["DocumentType"] | null;
+            /** Document Last4 */
+            document_last4?: string | null;
+            /** Rejection Reason */
+            rejection_reason?: string | null;
+        };
+        /**
+         * IdentitySubmit
+         * @description Request body for an identity check.
+         */
+        IdentitySubmit: {
+            /** Full Name */
+            full_name: string;
+            /**
+             * Date Of Birth
+             * Format: date
+             */
+            date_of_birth: string;
+            /**
+             * Country
+             * @enum {string}
+             */
+            country: "CA" | "US" | "GB" | "SA" | "AE";
+            document_type: components["schemas"]["DocumentType"];
+            /** Document Number */
+            document_number: string;
         };
         /**
          * LinkToken
@@ -3720,6 +3791,72 @@ export interface operations {
             };
         };
     };
+    get_identity_identity_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_identity_identity_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IdentitySubmit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
 }
 type FlattenedDeepRequired<T> = {
     [K in keyof T]-?: FlattenedDeepRequired<T[K] extends unknown[] | undefined | null ? Extract<T[K], unknown[]>[number] : T[K]>;
@@ -3731,7 +3868,10 @@ type ReadonlyArray<T> = [
 ] ? Readonly<Exclude<T, undefined>> : Readonly<Exclude<T, undefined>[]>;
 export const bankTransactionStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BankTransactionStatus"]> = ["new", "added", "ignored"];
 export const categoryValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Category"]> = ["Groceries", "Dining", "Transport", "Shopping", "Entertainment", "Bills & Utilities", "Health", "Other"];
+export const documentTypeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["DocumentType"]> = ["passport", "drivers_licence", "national_id"];
 export const healthResponseDatabaseValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["HealthResponse"]["database"]> = ["ok", "unavailable"];
+export const identityReadStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["IdentityRead"]["status"]> = ["unverified", "verified", "rejected"];
+export const identitySubmitCountryValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["IdentitySubmit"]["country"]> = ["CA", "US", "GB", "SA", "AE"];
 export const moneyRequestReadDirectionValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MoneyRequestRead"]["direction"]> = ["incoming", "outgoing"];
 export const moneyRequestStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MoneyRequestStatus"]> = ["pending", "paid", "declined", "cancelled"];
 export const receiptStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ReceiptStatus"]> = ["pending", "extracted", "failed"];

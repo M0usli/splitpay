@@ -20,6 +20,7 @@ import {
 } from "@/lib/api";
 import { finishAmount, isPositiveAmount } from "@/lib/amountInput";
 import { formatMoney } from "@/lib/format";
+import { helpLinkFor } from "@/lib/helpLink";
 import { newRequestId } from "@/lib/requestId";
 
 type BillsData = {
@@ -177,12 +178,14 @@ export default function Bills() {
 
   const { wallet, billers, saved, payments } = status.data;
 
+  // "Not enough money" and "verify your identity" each have a page that fixes them.
+  const helpLink = helpLinkFor(actionError);
   const alert = actionError !== null && (
     <div role="alert" className="mb-4 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
       <p>{actionError}</p>
-      {actionError.includes("enough money") && (
-        <Link href="/" className="font-medium underline">
-          Add money to your wallet
+      {helpLink !== null && (
+        <Link href={helpLink.href} className="font-medium underline">
+          {helpLink.label}
         </Link>
       )}
     </div>

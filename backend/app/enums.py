@@ -45,3 +45,18 @@ class ReceiptStatus(StrEnum):
     PENDING = "pending"
     EXTRACTED = "extracted"
     FAILED = "failed"
+
+
+class IdentityStatus(StrEnum):
+    """The result of an identity check. No row at all means "not checked yet"."""
+
+    VERIFIED = "verified"
+    REJECTED = "rejected"
+
+
+class DocumentType(StrEnum):
+    """The kind of document a user proves their identity with."""
+
+    PASSPORT = "passport"
+    DRIVERS_LICENCE = "drivers_licence"
+    NATIONAL_ID = "national_id"

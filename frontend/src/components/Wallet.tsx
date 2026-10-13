@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
@@ -11,6 +12,7 @@ import {
   declineMoneyRequest,
   getBalance,
   getHousehold,
+  getIdentity,
   getWallet,
   listMoneyRequests,
   listWalletTransactions,
@@ -25,6 +27,7 @@ import {
 } from "@/lib/api";
 import { finishAmount, isPositiveAmount } from "@/lib/amountInput";
 import { formatMoney } from "@/lib/format";
+import { helpLinkFor } from "@/lib/helpLink";
 import { buildPayLink, isLocalOnly, payLinkOrigin, type PayLink } from "@/lib/payLink";
 import { newRequestId, RequestIds } from "@/lib/requestId";
 
@@ -37,6 +40,8 @@ type WalletData = {
   debts: Debt[];
   /** Requests for money that are still waiting for an answer. */
   requests: MoneyRequest[];
+  /** Sending money needs a passed identity check. Adding and receiving do not. */
+  isVerified: boolean;
 };
 
 type Debt = { toId: number; toEmail: string; amount: string };
@@ -78,10 +83,11 @@ function errorMessage(error: unknown): string {
 }
 
 async function loadWalletData(myEmail: string): Promise<WalletData> {
-  const [wallet, transactions, allRequests, household] = await Promise.all([
+  const [wallet, transactions, allRequests, identity, household] = await Promise.all([
     getWallet(),
     listWalletTransactions(),
     listMoneyRequests(),
+    getIdentity(),
     // The household only offers shortcuts. If it cannot be loaded, the wallet still works.
     getHousehold().catch(() => null),
   ]);
@@ -99,7 +105,14 @@ async function loadWalletData(myEmail: string): Promise<WalletData> {
     }));
   // Paid ones are in the history; declined and cancelled ones are finished.
   const requests = allRequests.filter((request) => request.status === "pending");
-  return { wallet, transactions, housemates, debts, requests };
+  return {
+    wallet,
+    transactions,
+    housemates,
+    debts,
+    requests,
+    isVerified: identity.status === "verified",
+  };
 }
 
 /**
@@ -327,7 +340,9 @@ export default function Wallet({ payLink = null }: { payLink?: PayLink | null })
     );
   }
 
-  const { wallet, transactions, debts, requests } = status.data;
+  const { wallet, transactions, debts, requests, isVerified } = status.data;
+  // Only a refusal about identity gets a link here; "not enough money" is fixed on this page.
+  const verifyLink = helpLinkFor(actionError)?.href === "/verify" ? helpLinkFor(actionError) : null;
   const incoming = requests.filter((request) => request.direction === "incoming");
   const outgoing = requests.filter((request) => request.direction === "outgoing");
   const people = suggestPeople(status.data);
@@ -337,6 +352,26 @@ export default function Wallet({ payLink = null }: { payLink?: PayLink | null })
       {actionError}
     </p>
   );
+
+  // The backend refuses a send from an unverified user. Saying so before the
+  // steps saves them from filling everything in first.
+  const isSendingStep =
+    view.name === "send-confirm" ||
+    ((view.name === "who" || view.name === "amount") && view.mode === "send");
+  if (isSendingStep && !isVerified) {
+    return (
+      <section className={`${cardClass} mx-auto max-w-md`} aria-label="Send money">
+        <StepHeader title="Verify your identity first" onBack={() => open({ name: "home" })} />
+        <p className="text-sm text-zinc-600">
+          To send money, the wallet has to know who you are. It takes about a minute. You can
+          already add money and receive it.
+        </p>
+        <Link href="/verify" className={`${primaryButtonClass} mt-4 block text-center`}>
+          Verify now
+        </Link>
+      </section>
+    );
+  }
 
   if (view.name === "add") {
     return (
@@ -590,9 +625,16 @@ export default function Wallet({ payLink = null }: { payLink?: PayLink | null })
         aria-labelledby="balance-heading"
         className="rounded-3xl bg-gradient-to-br from-emerald-600 to-teal-700 p-6 text-white shadow-lg"
       >
-        <h2 id="balance-heading" className="text-sm font-medium text-emerald-100">
-          Balance
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 id="balance-heading" className="text-sm font-medium text-emerald-100">
+            Balance
+          </h2>
+          {isVerified && (
+            <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-medium ring-1 ring-white/25">
+              ✓ Verified
+            </span>
+          )}
+        </div>
         <p className="mt-1 text-5xl font-semibold tracking-tight">
           {formatMoney(wallet.balance, wallet.currency)}
         </p>
@@ -622,9 +664,31 @@ export default function Wallet({ payLink = null }: { payLink?: PayLink | null })
       )}
 
       {actionError !== null && (
-        <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
-          {actionError}
-        </p>
+        <div role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+          <p>{actionError}</p>
+          {verifyLink !== null && (
+            <Link href={verifyLink.href} className="font-medium underline">
+              {verifyLink.label}
+            </Link>
+          )}
+        </div>
+      )}
+
+      {!isVerified && (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5" aria-labelledby="verify-heading">
+          <h2 id="verify-heading" className="text-sm font-semibold text-amber-900">
+            Verify your identity to send money
+          </h2>
+          <p className="mt-1 text-sm text-amber-800">
+            You can add and receive money now. Sending and paying need a quick identity check.
+          </p>
+          <Link
+            href="/verify"
+            className="mt-3 inline-block rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-500"
+          >
+            Verify now
+          </Link>
+        </section>
       )}
 
       {debts.length > 0 && (
