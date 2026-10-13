@@ -11,6 +11,7 @@ import { useAuth } from "@/components/AuthProvider";
 import {
   cancelMoneyRequest,
   declineMoneyRequest,
+  downloadStatement,
   getBalance,
   getHousehold,
   getWallet,
@@ -32,6 +33,7 @@ import { formatMoney } from "@/lib/format";
 import { helpLinkFor } from "@/lib/helpLink";
 import { buildPayLink, isLocalOnly, payLinkOrigin, type PayLink } from "@/lib/payLink";
 import { newRequestId, RequestIds } from "@/lib/requestId";
+import { saveFile, statementMonth } from "@/lib/statement";
 
 type WalletData = {
   wallet: WalletInfo;
@@ -336,6 +338,20 @@ export default function Wallet({ payLink = null }: { payLink?: PayLink | null })
       await cancelMoneyRequest(request.id);
       return `Your request to ${request.counterparty} was cancelled.`;
     });
+  }
+
+  /** Download the statement for this month (0) or last month (1). */
+  async function handleStatement(monthsAgo: number) {
+    const month = statementMonth(new Date(), monthsAgo);
+    setIsBusy(true);
+    setActionError(null);
+    try {
+      saveFile(await downloadStatement(month), `splitpay-statement-${month}.csv`);
+    } catch (error) {
+      setActionError(errorMessage(error));
+    } finally {
+      setIsBusy(false);
+    }
   }
 
   function handleOtherEmail(event: FormEvent<HTMLFormElement>, mode: Mode) {
@@ -844,6 +860,21 @@ export default function Wallet({ payLink = null }: { payLink?: PayLink | null })
         <h2 id="history-heading" className="text-sm font-semibold text-zinc-700">
           History
         </h2>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-zinc-500">Download a statement:</span>
+          {["This month", "Last month"].map((label, monthsAgo) => (
+            <button
+              key={label}
+              type="button"
+              disabled={isBusy}
+              onClick={() => void handleStatement(monthsAgo)}
+              aria-label={`Download the statement for ${label.toLowerCase()}`}
+              className="rounded-full border border-zinc-300 px-3 py-1 font-medium hover:border-emerald-400 disabled:opacity-50"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         {transactions.length === 0 ? (
           <p className="mt-3 text-sm text-zinc-500">Nothing yet. Add some money to get started.</p>
         ) : (

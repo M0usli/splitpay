@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException, status
+from typing import Annotated
+
+from fastapi import APIRouter, HTTPException, Query, Response, status
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
@@ -18,6 +20,7 @@ from app.schemas.wallet import (
     WalletRead,
 )
 from app.spending import daily_limit_for, remaining_today, spend
+from app.statement import build_statement
 from app.wallet import find_transfer, get_balance, get_or_create_wallet, move_money
 
 router = APIRouter(prefix="/wallet", tags=["wallet"])
@@ -140,6 +143,24 @@ def send_money(payload: SendRequest, db: DbSession, user: PayingUser) -> Transfe
     db.refresh(transfer)
     return TransferResult(
         transaction=to_transaction(db, transfer, wallet), balance=get_balance(db, wallet)
+    )
+
+
+# A year and a month, for example 2026-10.
+Month = Annotated[str, Query(pattern=r"^\d{4}-(0[1-9]|1[0-2])$")]
+
+
+@router.get("/statement")
+def download_statement(month: Month, db: DbSession, user: CurrentUser) -> Response:
+    """One month of the wallet's history as a CSV file."""
+    wallet = get_or_create_wallet(db, user)
+    content = build_statement(db, wallet, month)
+    db.commit()  # keeps the wallet if it was just made
+    return Response(
+        content=content,
+        media_type="text/csv",
+        # attachment: the browser saves the file instead of showing it.
+        headers={"Content-Disposition": f'attachment; filename="splitpay-statement-{month}.csv"'},
     )
 
 

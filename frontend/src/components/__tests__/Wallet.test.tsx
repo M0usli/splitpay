@@ -3,10 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, test, vi } from "vitest";
 
 import Wallet from "@/components/Wallet";
+import { saveFile } from "@/lib/statement";
 import { enterPin } from "@/test/enterPin";
 import {
   cancelMoneyRequest,
   declineMoneyRequest,
+  downloadStatement,
   getBalance,
   getHousehold,
   getPin,
@@ -35,6 +37,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
   cancelMoneyRequest: vi.fn(),
   declineMoneyRequest: vi.fn(),
+  downloadStatement: vi.fn(),
   getBalance: vi.fn(),
   getHousehold: vi.fn(),
   getPin: vi.fn(),
@@ -47,6 +50,12 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   requestMoney: vi.fn(),
   sendMoney: vi.fn(),
   topUpWallet: vi.fn(),
+}));
+
+// Saving a file needs a real browser, so only the call is checked.
+vi.mock("@/lib/statement", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/statement")>()),
+  saveFile: vi.fn(),
 }));
 
 const TOP_UP: WalletTransaction = {
@@ -513,6 +522,34 @@ test("a one-tap payment refused for the limit links to the check", async () => {
 
   const alert = within(await screen.findByRole("alert"));
   expect(alert.getByRole("link", { name: "Verify your identity" })).toHaveAttribute("href", "/verify");
+});
+
+// --- the statement ---
+
+test("a statement for this month or last month can be downloaded", async () => {
+  const file = new Blob(["Date,Description"], { type: "text/csv" });
+  vi.mocked(downloadStatement).mockResolvedValue(file);
+  render(<Wallet />);
+
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Download the statement for last month" }),
+  );
+
+  const month = vi.mocked(downloadStatement).mock.calls[0][0];
+  expect(month).toMatch(/^\d{4}-\d{2}$/);
+  expect(saveFile).toHaveBeenCalledWith(file, `splitpay-statement-${month}.csv`);
+});
+
+test("a statement that cannot be downloaded says why", async () => {
+  vi.mocked(downloadStatement).mockRejectedValue(new Error("Could not reach the backend."));
+  render(<Wallet />);
+
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Download the statement for this month" }),
+  );
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("Could not reach the backend.");
+  expect(saveFile).not.toHaveBeenCalled();
 });
 
 // --- adding money ---

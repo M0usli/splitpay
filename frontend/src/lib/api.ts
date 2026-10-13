@@ -318,6 +318,25 @@ export function setPin(pin: string, currentPin: string | null): Promise<PinStatu
   return request("/wallet/pin", jsonRequest("PUT", { pin, current_pin: currentPin }));
 }
 
+/**
+ * One month of the wallet's history as a CSV file. `month` is "2026-10".
+ * It is a file, not JSON, so it is returned as a Blob (a chunk of raw data).
+ */
+export async function downloadStatement(month: string): Promise<Blob> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/wallet/statement?month=${month}`, {
+      credentials: "include",
+    });
+  } catch {
+    throw new ApiError("Could not reach the backend. Is it running?", 0);
+  }
+  if (!response.ok) {
+    throw new ApiError(await readErrorMessage(response), response.status);
+  }
+  return response.blob();
+}
+
 /** The daily sending limit, and how much of it is left today. */
 export function getWalletLimits(): Promise<Limits> {
   return request("/wallet/limits");
