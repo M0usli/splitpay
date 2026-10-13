@@ -3,11 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, test, vi } from "vitest";
 
 import Wallet from "@/components/Wallet";
+import { enterPin } from "@/test/enterPin";
 import {
   cancelMoneyRequest,
   declineMoneyRequest,
   getBalance,
   getHousehold,
+  getPin,
   getWallet,
   getWalletLimits,
   listMoneyRequests,
@@ -35,6 +37,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   declineMoneyRequest: vi.fn(),
   getBalance: vi.fn(),
   getHousehold: vi.fn(),
+  getPin: vi.fn(),
   getWallet: vi.fn(),
   getWalletLimits: vi.fn(),
   listMoneyRequests: vi.fn(),
@@ -111,6 +114,8 @@ beforeEach(() => {
   });
   // Sam has passed the identity check unless a test says otherwise.
   vi.mocked(getWalletLimits).mockResolvedValue(VERIFIED);
+  // The user has a payment PIN, and it is not locked.
+  vi.mocked(getPin).mockResolvedValue({ is_set: true, locked_minutes: 0 });
   // No requests are waiting unless a test says so.
   vi.mocked(listMoneyRequests).mockResolvedValue([]);
   vi.mocked(topUpWallet).mockResolvedValue(RESULT);
@@ -196,8 +201,14 @@ test("one tap pays the debt from the wallet", async () => {
   render(<Wallet />);
 
   await userEvent.click(await screen.findByRole("button", { name: "Pay $13.18" }));
+  await enterPin();
 
-  expect(payFromWallet).toHaveBeenCalledWith(4, "13.18", expect.stringMatching(/^[0-9a-f]{32}$/));
+  expect(payFromWallet).toHaveBeenCalledWith(
+    4,
+    "13.18",
+    expect.stringMatching(/^[0-9a-f]{32}$/),
+    "4826",
+  );
   expect(await screen.findByRole("status")).toHaveTextContent(
     "You paid kim@example.com $13.18 for your split bill.",
   );
@@ -226,6 +237,7 @@ test("a debt that cannot be paid says why", async () => {
   render(<Wallet />);
 
   await userEvent.click(await screen.findByRole("button", { name: "Pay $13.18" }));
+  await enterPin();
 
   expect(await screen.findByRole("alert")).toHaveTextContent("You do not have enough money");
 });
@@ -316,8 +328,9 @@ test("a request someone sent can be paid with one tap", async () => {
   const forMe = within(await screen.findByRole("region", { name: "Requests for you" }));
   expect(forMe.getByText(/alex asks for \$12\.00/)).toBeInTheDocument();
   await userEvent.click(forMe.getByRole("button", { name: "Pay $12.00" }));
+  await enterPin();
 
-  expect(payMoneyRequest).toHaveBeenCalledWith(5, expect.stringMatching(/^[0-9a-f]{32}$/));
+  expect(payMoneyRequest).toHaveBeenCalledWith(5, expect.stringMatching(/^[0-9a-f]{32}$/), "4826");
   expect(await screen.findByRole("status")).toHaveTextContent("You paid alex@example.com $12.00.");
 });
 
@@ -406,10 +419,12 @@ test("a scanned code with an amount opens the confirm step, and nothing is sent 
   expect(sendMoney).not.toHaveBeenCalled();
 
   await click("Confirm and send");
+  await enterPin();
 
   expect(sendMoney).toHaveBeenCalledWith(
     expect.objectContaining({ toEmail: "alex@example.com", amount: "12.50", note: null }),
     expect.stringMatching(/^[0-9a-f]{32}$/),
+    "4826",
   );
 });
 
@@ -476,11 +491,13 @@ test("a send over the daily limit says so, with a link to the check", async () =
   await startSendingToAlex();
   await click("Review");
   await click("Confirm and send");
+  await enterPin();
 
   const alert = within(await screen.findByRole("alert"));
   expect(alert.getByText(/you have \$30\.00 left/)).toBeInTheDocument();
   expect(alert.getByRole("link", { name: "Verify your identity" })).toHaveAttribute("href", "/verify");
-  // Still on the confirm step, so the amount can be changed.
+  // Still on the PIN step; Back returns to the confirm step, where the amount can be changed.
+  await click("Back");
   expect(screen.getByRole("button", { name: "Confirm and send" })).toBeInTheDocument();
 });
 
@@ -492,6 +509,7 @@ test("a one-tap payment refused for the limit links to the check", async () => {
   render(<Wallet />);
 
   await userEvent.click(await screen.findByRole("button", { name: "Pay $13.18" }));
+  await enterPin();
 
   const alert = within(await screen.findByRole("alert"));
   expect(alert.getByRole("link", { name: "Verify your identity" })).toHaveAttribute("href", "/verify");
@@ -559,10 +577,12 @@ test("sending to a known person needs no typing at all", async () => {
   await click("Groceries");
   await click("Review");
   await click("Confirm and send");
+  await enterPin();
 
   expect(sendMoney).toHaveBeenCalledWith(
     expect.objectContaining({ toEmail: "alex@example.com", amount: "20", note: "Groceries" }),
     expect.stringMatching(/^[0-9a-f]{32}$/),
+    "4826",
   );
   expect(await screen.findByRole("status")).toHaveTextContent(
     "$20.00 was sent to alex@example.com.",
@@ -610,8 +630,13 @@ test("a note chip can be chosen and taken back", async () => {
   await click("Rent");
   await click("Review");
   await click("Confirm and send");
+  await enterPin();
 
-  expect(sendMoney).toHaveBeenCalledWith(expect.objectContaining({ note: null }), expect.any(String));
+  expect(sendMoney).toHaveBeenCalledWith(
+    expect.objectContaining({ note: null }),
+    expect.any(String),
+    "4826",
+  );
 });
 
 test("Review is off until there is an amount", async () => {
@@ -644,8 +669,9 @@ test("a refused send shows the reason and can be retried with the same request i
   await click("Review");
 
   await click("Confirm and send");
+  await enterPin();
   expect(await screen.findByRole("alert")).toHaveTextContent("Could not reach the backend.");
-  await click("Confirm and send");
+  await enterPin();
   await screen.findByRole("status");
 
   // The retry is the same action, so it carries the same id and cannot send twice.
@@ -660,6 +686,7 @@ test("each new send gets its own request id", async () => {
     await startSendingToAlex();
     await click("Review");
     await click("Confirm and send");
+    await enterPin();
     await screen.findByRole("status");
   }
 

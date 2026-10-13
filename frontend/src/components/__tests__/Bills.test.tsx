@@ -3,7 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, test, vi } from "vitest";
 
 import Bills from "@/components/Bills";
+import { enterPin } from "@/test/enterPin";
 import {
+  getPin,
   getWallet,
   listBillers,
   listBillPayments,
@@ -19,6 +21,7 @@ import {
 // No test calls the real backend.
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
+  getPin: vi.fn(),
   getWallet: vi.fn(),
   listBillers: vi.fn(),
   listBillPayments: vi.fn(),
@@ -49,6 +52,8 @@ beforeEach(() => {
   vi.mocked(listBillPayments).mockResolvedValue([]);
   vi.mocked(saveBiller).mockResolvedValue(MY_HYDRO);
   vi.mocked(payBill).mockResolvedValue(RECEIPT);
+  // The user has a payment PIN, and it is not locked.
+  vi.mocked(getPin).mockResolvedValue({ is_set: true, locked_minutes: 0 });
 });
 
 const click = (name: string | RegExp) => userEvent.click(screen.getByRole("button", { name }));
@@ -151,8 +156,9 @@ test("confirming pays the bill and shows its receipt", async () => {
 
   await reviewFiftyDollars();
   await click("Confirm and pay");
+  await enterPin();
 
-  expect(payBill).toHaveBeenCalledWith(3, "50", expect.stringMatching(/^[0-9a-f]{32}$/));
+  expect(payBill).toHaveBeenCalledWith(3, "50", expect.stringMatching(/^[0-9a-f]{32}$/), "4826");
   const receipt = within(await screen.findByRole("region", { name: "Receipt" }));
   expect(receipt.getByRole("status")).toHaveTextContent("Bill paid");
   expect(receipt.getByText("BP-000042")).toBeInTheDocument();
@@ -168,8 +174,9 @@ test("a payment that fails and is tried again uses the same request id", async (
 
   await reviewFiftyDollars();
   await click("Confirm and pay");
+  await enterPin();
   await screen.findByRole("alert");
-  await click("Confirm and pay");
+  await enterPin();
   await screen.findByRole("region", { name: "Receipt" });
 
   const [first, second] = vi.mocked(payBill).mock.calls.map((call) => call[2]);
@@ -182,6 +189,7 @@ test("not enough money shows the reason and a link to the wallet", async () => {
 
   await reviewFiftyDollars();
   await click("Confirm and pay");
+  await enterPin();
 
   expect(await screen.findByRole("alert")).toHaveTextContent("You do not have enough money");
   expect(screen.getByRole("link", { name: "Add money to your wallet" })).toHaveAttribute("href", "/");

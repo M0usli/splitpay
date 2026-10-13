@@ -882,6 +882,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/wallet/pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Pin
+         * @description Whether the user has a payment PIN. The PIN itself can never be read back.
+         */
+        get: operations["read_pin_wallet_pin_get"];
+        /**
+         * Write Pin
+         * @description Create the PIN, or change it by giving the current one.
+         */
+        put: operations["write_pin_wallet_pin_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/bills/billers": {
         parameters: {
             query?: never;
@@ -1573,6 +1597,23 @@ export interface components {
             adjustment: string;
             /** Amount */
             amount: string;
+        };
+        /** PinRead */
+        PinRead: {
+            /** Is Set */
+            is_set: boolean;
+            /** Locked Minutes */
+            locked_minutes: number;
+        };
+        /**
+         * PinSet
+         * @description Request body for creating or changing the payment PIN.
+         */
+        PinSet: {
+            /** Pin */
+            pin: string;
+            /** Current Pin */
+            current_pin?: string | null;
         };
         /**
          * ReceiptRead
@@ -2843,7 +2884,9 @@ export interface operations {
     pay_from_wallet_household_pay_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Payment-Pin"?: string | null;
+            };
             path?: never;
             cookie?: {
                 session?: string | null;
@@ -3433,7 +3476,9 @@ export interface operations {
     send_money_wallet_send_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Payment-Pin"?: string | null;
+            };
             path?: never;
             cookie?: {
                 session?: string | null;
@@ -3565,7 +3610,9 @@ export interface operations {
     pay_request_wallet_requests__request_id__pay_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Payment-Pin"?: string | null;
+            };
             path: {
                 request_id: number;
             };
@@ -3652,6 +3699,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MoneyRequestRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_pin_wallet_pin_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PinRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    write_pin_wallet_pin_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinSet"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PinRead"];
                 };
             };
             /** @description Validation Error */
@@ -3796,7 +3909,9 @@ export interface operations {
     pay_bill_bills_pay_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Payment-Pin"?: string | null;
+            };
             path?: never;
             cookie?: {
                 session?: string | null;

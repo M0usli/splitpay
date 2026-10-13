@@ -21,6 +21,7 @@ import {
   type Settlement,
   type SharedExpense,
 } from "@/lib/api";
+import PinPrompt from "@/components/PinPrompt";
 import { formatMoney } from "@/lib/format";
 import { helpLinkFor } from "@/lib/helpLink";
 import { RequestIds } from "@/lib/requestId";
@@ -76,6 +77,8 @@ export default function SplitBill() {
   const [status, setStatus] = useState<Status>({ state: "loading" });
   const [actionError, setActionError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  // Set while the PIN is being asked for a payment from the wallet.
+  const [paying, setPaying] = useState<{ to: Member; amount: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   // useRef keeps the same object for as long as the page is open, so a
   // second tap on a Pay button finds the id the first tap made.
@@ -153,11 +156,16 @@ export default function SplitBill() {
   const myNet = balance.members.find((entry) => entry.member.id === myId)?.net ?? "0.00";
 
   /** Pay a housemate from the wallet: the money moves and the debt is settled together. */
-  async function handlePay(to: Member, amount: string) {
+  async function payWithPin(pin: string) {
+    if (paying === null) {
+      return;
+    }
+    const { to, amount } = paying;
     const action = `pay-${to.id}-${amount}`;
     await run(async () => {
-      await payFromWallet(to.id, amount, payIds.current.idFor(action));
+      await payFromWallet(to.id, amount, payIds.current.idFor(action), pin);
       payIds.current.forget(action);
+      setPaying(null);
       setNotice(`You paid ${to.email} ${formatMoney(amount, "CAD")} from your wallet.`);
     });
   }
@@ -169,6 +177,21 @@ export default function SplitBill() {
     if (confirmed) {
       void run(() => leaveHousehold());
     }
+  }
+
+  if (paying !== null) {
+    return (
+      <PinPrompt
+        what={`Pay ${paying.to.email} ${formatMoney(paying.amount, "CAD")} from your wallet`}
+        error={actionError}
+        isBusy={isBusy}
+        onBack={() => {
+          setActionError(null);
+          setPaying(null);
+        }}
+        onSubmit={payWithPin}
+      />
+    );
   }
 
   return (
@@ -240,7 +263,11 @@ export default function SplitBill() {
                     <button
                       type="button"
                       disabled={isBusy}
-                      onClick={() => handlePay(payment.owed_to, payment.amount)}
+                      onClick={() => {
+                        setActionError(null);
+                        setNotice(null);
+                        setPaying({ to: payment.owed_to, amount: payment.amount });
+                      }}
                       className={buttonClass}
                     >
                       Pay {formatMoney(payment.amount, balance.currency)} from wallet

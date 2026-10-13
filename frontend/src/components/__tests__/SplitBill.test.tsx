@@ -3,9 +3,11 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, test, vi } from "vitest";
 
 import SplitBill from "@/components/SplitBill";
+import { enterPin } from "@/test/enterPin";
 import {
   createHousehold,
   getBalance,
+  getPin,
   getHousehold,
   joinHousehold,
   listSettlements,
@@ -27,6 +29,7 @@ vi.mock("@/lib/api", () => ({
   deleteSettlement: vi.fn(),
   getBalance: vi.fn(),
   getHousehold: vi.fn(),
+  getPin: vi.fn(),
   joinHousehold: vi.fn(),
   leaveHousehold: vi.fn(),
   listSettlements: vi.fn(),
@@ -74,6 +77,8 @@ function mockHousehold(balance: Balance) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // The user has a payment PIN, and it is not locked.
+  vi.mocked(getPin).mockResolvedValue({ is_set: true, locked_minutes: 0 });
 });
 
 test("someone without a household can create one", async () => {
@@ -126,8 +131,14 @@ test("the exact amount owed is on a button that pays it from the wallet", async 
   render(<SplitBill />);
 
   await userEvent.click(await screen.findByRole("button", { name: "Pay $30.00 from wallet" }));
+  await enterPin();
 
-  expect(payFromWallet).toHaveBeenCalledWith(2, "30.00", expect.stringMatching(/^[0-9a-f]{32}$/));
+  expect(payFromWallet).toHaveBeenCalledWith(
+    2,
+    "30.00",
+    expect.stringMatching(/^[0-9a-f]{32}$/),
+    "4826",
+  );
   expect(recordSettlement).not.toHaveBeenCalled();
   expect(await screen.findByRole("status")).toHaveTextContent(
     "You paid alex@example.com $30.00 from your wallet.",
@@ -140,8 +151,9 @@ test("a payment that fails and is tried again uses the same request id", async (
   render(<SplitBill />);
 
   await userEvent.click(await screen.findByRole("button", { name: "Pay $30.00 from wallet" }));
+  await enterPin();
   await screen.findByRole("alert");
-  await userEvent.click(screen.getByRole("button", { name: "Pay $30.00 from wallet" }));
+  await enterPin();
   await screen.findByRole("status");
 
   const [first, second] = vi.mocked(payFromWallet).mock.calls.map((call) => call[2]);
@@ -156,6 +168,7 @@ test("not enough money shows the reason and a link to the wallet", async () => {
   render(<SplitBill />);
 
   await userEvent.click(await screen.findByRole("button", { name: "Pay $30.00 from wallet" }));
+  await enterPin();
 
   expect(await screen.findByRole("alert")).toHaveTextContent("You do not have enough money");
   expect(screen.getByRole("link", { name: "Add money to your wallet" })).toHaveAttribute(
