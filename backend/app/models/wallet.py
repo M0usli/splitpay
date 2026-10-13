@@ -4,7 +4,7 @@ from decimal import Decimal
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.enums import TransferKind
+from app.enums import MoneyRequestStatus, TransferKind
 from app.models.base import Base, enum_column_type
 
 
@@ -61,3 +61,35 @@ class WalletTransfer(Base):
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
+
+
+class MoneyRequest(Base):
+    """One user asking another for money. No money moves until it is paid."""
+
+    __tablename__ = "money_requests"
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="ck_money_requests_amount_positive"),
+        CheckConstraint("from_user_id <> to_user_id", name="ck_money_requests_two_people"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # The person asking, who will receive the money.
+    from_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    # The person asked, who will pay.
+    to_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    note: Mapped[str | None] = mapped_column(String(200))
+    status: Mapped[MoneyRequestStatus] = mapped_column(
+        enum_column_type(MoneyRequestStatus), default=MoneyRequestStatus.PENDING, index=True
+    )
+    # The ledger row that paid it. unique=True: a transfer pays one request.
+    wallet_transfer_id: Mapped[int | None] = mapped_column(
+        ForeignKey("wallet_transfers.id"), unique=True
+    )
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    # When it was paid, declined or cancelled.
+    resolved_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(timezone=True))

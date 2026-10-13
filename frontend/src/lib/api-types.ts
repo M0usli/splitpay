@@ -778,6 +778,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/wallet/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Requests
+         * @description Requests the user made or received, newest first.
+         */
+        get: operations["list_requests_wallet_requests_get"];
+        put?: never;
+        /**
+         * Create Request
+         * @description Ask another user for money. Nothing moves until they pay.
+         */
+        post: operations["create_request_wallet_requests_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wallet/requests/{request_id}/pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pay Request
+         * @description Pay a request from the wallet. The money moves and the request is closed together.
+         */
+        post: operations["pay_request_wallet_requests__request_id__pay_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wallet/requests/{request_id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decline Request
+         * @description Say no to a request. Only the person who was asked can.
+         */
+        post: operations["decline_request_wallet_requests__request_id__decline_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wallet/requests/{request_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Request
+         * @description Take a request back. Only the person who made it can.
+         */
+        post: operations["cancel_request_wallet_requests__request_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1146,6 +1230,60 @@ export interface components {
             /** Expense Count */
             expense_count: number;
         };
+        /**
+         * MoneyRequestCreate
+         * @description Request body for asking another user for money.
+         */
+        MoneyRequestCreate: {
+            /**
+             * To Email
+             * Format: email
+             */
+            to_email: string;
+            /** Amount */
+            amount: number | string;
+            /** Note */
+            note?: string | null;
+        };
+        /**
+         * MoneyRequestPay
+         * @description Request body for paying a request. The id makes a double tap pay once.
+         */
+        MoneyRequestPay: {
+            /** Idempotency Key */
+            idempotency_key: string;
+        };
+        /**
+         * MoneyRequestRead
+         * @description A request for money, seen from the logged-in user's side.
+         */
+        MoneyRequestRead: {
+            /** Id */
+            id: number;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "incoming" | "outgoing";
+            /** Counterparty */
+            counterparty: string;
+            /** Amount */
+            amount: string;
+            /** Note */
+            note: string | null;
+            status: components["schemas"]["MoneyRequestStatus"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * MoneyRequestStatus
+         * @description Where a request for money stands.
+         * @enum {string}
+         */
+        MoneyRequestStatus: "pending" | "paid" | "declined" | "cancelled";
         /** MonthlyTotal */
         MonthlyTotal: {
             /** Month */
@@ -1526,7 +1664,7 @@ export interface components {
          * @description Why money moved between two wallets.
          * @enum {string}
          */
-        TransferKind: "top_up" | "send" | "settlement";
+        TransferKind: "top_up" | "send" | "settlement" | "request";
         /**
          * TransferResult
          * @description What a top-up or a send returns: the new line of history and the new balance.
@@ -3054,6 +3192,175 @@ export interface operations {
             };
         };
     };
+    list_requests_wallet_requests_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoneyRequestRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_request_wallet_requests_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoneyRequestCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoneyRequestRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pay_request_wallet_requests__request_id__pay_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: number;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoneyRequestPay"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoneyRequestRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decline_request_wallet_requests__request_id__decline_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: number;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoneyRequestRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_request_wallet_requests__request_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: number;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoneyRequestRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
 }
 type FlattenedDeepRequired<T> = {
     [K in keyof T]-?: FlattenedDeepRequired<T[K] extends unknown[] | undefined | null ? Extract<T[K], unknown[]>[number] : T[K]>;
@@ -3066,6 +3373,8 @@ type ReadonlyArray<T> = [
 export const bankTransactionStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BankTransactionStatus"]> = ["new", "added", "ignored"];
 export const categoryValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Category"]> = ["Groceries", "Dining", "Transport", "Shopping", "Entertainment", "Bills & Utilities", "Health", "Other"];
 export const healthResponseDatabaseValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["HealthResponse"]["database"]> = ["ok", "unavailable"];
+export const moneyRequestReadDirectionValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MoneyRequestRead"]["direction"]> = ["incoming", "outgoing"];
+export const moneyRequestStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MoneyRequestStatus"]> = ["pending", "paid", "declined", "cancelled"];
 export const receiptStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ReceiptStatus"]> = ["pending", "extracted", "failed"];
 export const transactionReadDirectionValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TransactionRead"]["direction"]> = ["in", "out"];
-export const transferKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TransferKind"]> = ["top_up", "send", "settlement"];
+export const transferKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TransferKind"]> = ["top_up", "send", "settlement", "request"];

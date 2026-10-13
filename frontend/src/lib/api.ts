@@ -33,6 +33,7 @@ export type Recurring = Schemas["RecurringRead"];
 export type Wallet = Schemas["WalletRead"];
 export type WalletTransaction = Schemas["TransactionRead"];
 export type TransferResult = Schemas["TransferResult"];
+export type MoneyRequest = Schemas["MoneyRequestRead"];
 export type RecurringWrite = Schemas["RecurringWrite"];
 export type User = Schemas["UserRead"];
 export type Credentials = Schemas["Credentials"];
@@ -289,6 +290,38 @@ export function listWalletTransactions(): Promise<WalletTransaction[]> {
  */
 export function topUpWallet(amount: string, requestId: string): Promise<TransferResult> {
   return request("/wallet/top-up", jsonRequest("POST", { amount, idempotency_key: requestId }));
+}
+
+/** Requests for money the user made or received, newest first. */
+export function listMoneyRequests(): Promise<MoneyRequest[]> {
+  return request("/wallet/requests");
+}
+
+/** Ask another user for money. Nothing moves until they pay. */
+export function requestMoney(ask: {
+  toEmail: string;
+  amount: string;
+  note: string | null;
+}): Promise<MoneyRequest> {
+  return request(
+    "/wallet/requests",
+    jsonRequest("POST", { to_email: ask.toEmail, amount: ask.amount, note: ask.note }),
+  );
+}
+
+/** Pay a request from the wallet. A repeat with the same `requestId` pays only once. */
+export function payMoneyRequest(id: number, requestId: string): Promise<MoneyRequest> {
+  return request(`/wallet/requests/${id}/pay`, jsonRequest("POST", { idempotency_key: requestId }));
+}
+
+/** Say no to a request someone sent. */
+export function declineMoneyRequest(id: number): Promise<MoneyRequest> {
+  return request(`/wallet/requests/${id}/decline`, { method: "POST" });
+}
+
+/** Take back a request the user made. */
+export function cancelMoneyRequest(id: number): Promise<MoneyRequest> {
+  return request(`/wallet/requests/${id}/cancel`, { method: "POST" });
 }
 
 /** Send money to another user. A repeat with the same `requestId` moves it only once. */

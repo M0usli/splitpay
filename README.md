@@ -66,6 +66,9 @@ Added in version 3 (in progress):
 - **Wallet.** Every user has a balance of pretend money. Add money, send it
   to another user with a confirm step, and see the history of money in and
   out. The page is button-first: a number pad, one-tap amounts and people.
+- **Request money.** Ask another user for an amount. They see it on their
+  Wallet page with Pay and Decline buttons; the person who asked can cancel
+  it while it is waiting.
 - **Pay what you owe in one tap.** The Wallet and Split bill pages show the
   exact amount owed to each housemate on a button that pays it from the
   wallet.
@@ -217,6 +220,11 @@ with pretend transactions. The app cannot be pointed at real accounts.
 | POST | `/wallet/top-up` | Add pretend money to the wallet |
 | POST | `/wallet/send` | Send money to another user by email |
 | GET | `/wallet/transactions` | Money in and out, newest first |
+| POST | `/wallet/requests` | Ask another user for money; nothing moves yet |
+| GET | `/wallet/requests` | Requests the user made or received, newest first |
+| POST | `/wallet/requests/{id}/pay` | Pay a request from the wallet (only the person asked) |
+| POST | `/wallet/requests/{id}/decline` | Say no to a request (only the person asked) |
+| POST | `/wallet/requests/{id}/cancel` | Take a request back (only the person who asked) |
 
 Every `/receipts`, `/expenses` and `/stats` endpoint needs a login and works
 only on the logged-in user's own rows.
@@ -366,6 +374,10 @@ receipt-tracker/
   transaction, so the money moves and the debt is cleared together or not at
   all. A wallet payment cannot be undone in the app, because the ledger is
   never rewritten.
+- **A request can only be answered once.** A request starts as pending and
+  ends as paid, declined or cancelled. The backend locks the request's row
+  while it changes, so Pay tapped on two devices at the same moment moves
+  the money once, and a finished request cannot change again.
 - **Sending money takes two steps.** The Wallet page shows the amount and
   the recipient back for confirmation before anything moves. The request id
   (idempotency key) is made when that confirm step opens, so pressing
