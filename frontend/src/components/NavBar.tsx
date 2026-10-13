@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { useAuth } from "@/components/AuthProvider";
+import NotificationBell from "@/components/NotificationBell";
 import { logout } from "@/lib/api";
 
 const links = [
@@ -50,13 +51,15 @@ export default function NavBar() {
         </Link>
         {auth.state === "signedIn" && (
           <>
+            {/* On a phone the bell sits beside the Menu button; on a laptop, at the far right. */}
+            <NotificationBell />
             <button
               type="button"
               aria-label="Menu"
               aria-expanded={isMenuOpen}
               aria-controls="nav-menu"
               onClick={() => setIsMenuOpen((open) => !open)}
-              className="ml-auto rounded-md border border-zinc-300 px-3 py-1.5 text-sm lg:hidden"
+              className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm lg:hidden"
             >
               {isMenuOpen ? "Close" : "Menu"}
             </button>

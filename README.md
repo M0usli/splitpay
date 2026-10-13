@@ -78,6 +78,9 @@ Added in version 3 (in progress):
 - **Payment PIN.** A 4-digit PIN, made on the Security page, is asked for
   every time money leaves the wallet. Five wrong tries lock it for 15
   minutes.
+- **Notifications.** A bell in the nav bar counts unread messages such as
+  "alex sent you $20.00" or "jo declined your request for $7.00". Opening
+  the page marks them read.
 - **Pay bills.** Save a company (electricity, internet, mobile; all made
   up) with your account number, pay it from the wallet, and get a receipt
   with a reference number for every payment.
@@ -250,6 +253,8 @@ with pretend transactions. The app cannot be pointed at real accounts.
 | DELETE | `/bills/saved/{id}` | Remove a saved biller; receipts are kept |
 | POST | `/bills/pay` | Pay a bill from the wallet and get its receipt |
 | GET | `/bills/payments` | The user's bill receipts, newest first |
+| GET | `/notifications` | The user's notifications, newest first, and how many are unread |
+| POST | `/notifications/read` | Mark all of them read |
 | GET | `/identity` | Where the user's identity check stands |
 | POST | `/identity` | Submit details for an identity check; decided at once |
 
@@ -344,7 +349,7 @@ receipt-tracker/
 │   └── tests/
 ├── frontend/
 │   └── src/
-│       ├── app/            pages (Wallet, Bills, Verify, Security, Upload, Review, Expenses, Dashboard, Split bill, Recurring, Bank, Log in, Sign up)
+│       ├── app/            pages (Wallet, Bills, Notifications, Verify, Security, Upload, Review, Expenses, Dashboard, Split bill, Recurring, Bank, Log in, Sign up)
 │       ├── components/     React components and their tests
 │       └── lib/            API client, generated types, formatting helpers
 ├── eval/                   test receipts, labels and results
@@ -422,6 +427,11 @@ receipt-tracker/
   locks after five; the count is saved even though the request fails, and
   the PIN's row is locked while it is checked so parallel guesses are
   counted one by one. Forgetting the PIN has no reset flow yet.
+- **A notification is written with its event.** The message is added in
+  the same database transaction as the payment or request it describes, so
+  there is never one without the other, and a repeated request does not
+  notify twice. There is no live connection to the browser: the bell's
+  number is fetched again each time the user moves to another page.
 - **Only what is needed is kept.** The document number is used for the
   check and then dropped; the database stores its last 4 characters. A real
   wallet would hand documents to a specialist provider and would also check

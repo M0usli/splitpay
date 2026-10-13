@@ -11,6 +11,7 @@ from app.database import DbSession
 from app.enums import TransferKind
 from app.extraction.schemas import DEFAULT_CURRENCY
 from app.models import Expense, Household, Settlement, User
+from app.notifications import money, notify
 from app.pin import PayingUser
 from app.schemas.expense import ExpenseRead
 from app.schemas.household import (
@@ -340,6 +341,11 @@ def pay_from_wallet(payload: WalletPayment, db: DbSession, user: PayingUser) -> 
             wallet_transfer_id=transfer.id,
         )
         db.add(settlement)
+        notify(
+            db,
+            payload.to_user_id,
+            f"{user.email} paid you {money(payload.amount)} for a split bill.",
+        )
     db.commit()
     db.refresh(settlement)
     return to_settlement_read(settlement, members)

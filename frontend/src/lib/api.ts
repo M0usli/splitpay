@@ -35,6 +35,8 @@ export type WalletTransaction = Schemas["TransactionRead"];
 export type TransferResult = Schemas["TransferResult"];
 export type Limits = Schemas["LimitsRead"];
 export type PinStatus = Schemas["PinRead"];
+export type Notification = Schemas["NotificationRead"];
+export type NotificationList = Schemas["NotificationList"];
 export type MoneyRequest = Schemas["MoneyRequestRead"];
 export type Identity = Schemas["IdentityRead"];
 export type IdentitySubmit = Schemas["IdentitySubmit"];
@@ -295,6 +297,15 @@ export function ignoreBankTransaction(id: number): Promise<BankTransaction> {
 
 export function getWallet(): Promise<Wallet> {
   return request("/wallet");
+}
+
+/** The user's notifications, newest first, with how many are unread. */
+export function getNotifications(): Promise<NotificationList> {
+  return request("/notifications");
+}
+
+export function markNotificationsRead(): Promise<void> {
+  return request("/notifications/read", { method: "POST" });
 }
 
 /** Whether the user has a payment PIN, and whether it is locked. The PIN itself is never sent back. */
