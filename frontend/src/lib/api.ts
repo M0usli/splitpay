@@ -34,6 +34,7 @@ export type Wallet = Schemas["WalletRead"];
 export type WalletTransaction = Schemas["TransactionRead"];
 export type TransferResult = Schemas["TransferResult"];
 export type Limits = Schemas["LimitsRead"];
+export type PinStatus = Schemas["PinRead"];
 export type MoneyRequest = Schemas["MoneyRequestRead"];
 export type Identity = Schemas["IdentityRead"];
 export type IdentitySubmit = Schemas["IdentitySubmit"];
@@ -137,6 +138,15 @@ function jsonRequest(method: string, body: unknown): RequestInit {
   };
 }
 
+/**
+ * A request that takes money out of the wallet. It carries the payment PIN
+ * in a header, next to the JSON body.
+ */
+function payingRequest(body: unknown, pin: string): RequestInit {
+  const init = jsonRequest("POST", body);
+  return { ...init, headers: { ...init.headers, "X-Payment-Pin": pin } };
+}
+
 export function getHealth(): Promise<HealthResponse> {
   return request("/health");
 }
@@ -230,10 +240,11 @@ export function payFromWallet(
   toUserId: number,
   amount: string,
   requestId: string,
+  pin: string,
 ): Promise<Settlement> {
   return request(
     "/household/pay",
-    jsonRequest("POST", { to_user_id: toUserId, amount, idempotency_key: requestId }),
+    payingRequest({ to_user_id: toUserId, amount, idempotency_key: requestId }, pin),
   );
 }
 
@@ -284,6 +295,16 @@ export function ignoreBankTransaction(id: number): Promise<BankTransaction> {
 
 export function getWallet(): Promise<Wallet> {
   return request("/wallet");
+}
+
+/** Whether the user has a payment PIN, and whether it is locked. The PIN itself is never sent back. */
+export function getPin(): Promise<PinStatus> {
+  return request("/wallet/pin");
+}
+
+/** Create the payment PIN, or change it by giving the current one. */
+export function setPin(pin: string, currentPin: string | null): Promise<PinStatus> {
+  return request("/wallet/pin", jsonRequest("PUT", { pin, current_pin: currentPin }));
 }
 
 /** The daily sending limit, and how much of it is left today. */
@@ -344,10 +365,11 @@ export function payBill(
   savedBillerId: number,
   amount: string,
   requestId: string,
+  pin: string,
 ): Promise<BillPayment> {
   return request(
     "/bills/pay",
-    jsonRequest("POST", { saved_biller_id: savedBillerId, amount, idempotency_key: requestId }),
+    payingRequest({ saved_biller_id: savedBillerId, amount, idempotency_key: requestId }, pin),
   );
 }
 
@@ -374,8 +396,12 @@ export function requestMoney(ask: {
 }
 
 /** Pay a request from the wallet. A repeat with the same `requestId` pays only once. */
-export function payMoneyRequest(id: number, requestId: string): Promise<MoneyRequest> {
-  return request(`/wallet/requests/${id}/pay`, jsonRequest("POST", { idempotency_key: requestId }));
+export function payMoneyRequest(
+  id: number,
+  requestId: string,
+  pin: string,
+): Promise<MoneyRequest> {
+  return request(`/wallet/requests/${id}/pay`, payingRequest({ idempotency_key: requestId }, pin));
 }
 
 /** Say no to a request someone sent. */
@@ -392,15 +418,19 @@ export function cancelMoneyRequest(id: number): Promise<MoneyRequest> {
 export function sendMoney(
   send: { toEmail: string; amount: string; note: string | null },
   requestId: string,
+  pin: string,
 ): Promise<TransferResult> {
   return request(
     "/wallet/send",
-    jsonRequest("POST", {
-      to_email: send.toEmail,
-      amount: send.amount,
-      note: send.note,
-      idempotency_key: requestId,
-    }),
+    payingRequest(
+      {
+        to_email: send.toEmail,
+        amount: send.amount,
+        note: send.note,
+        idempotency_key: requestId,
+      },
+      pin,
+    ),
   );
 }
 

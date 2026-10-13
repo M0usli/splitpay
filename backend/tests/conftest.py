@@ -18,14 +18,15 @@ from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
-from app.auth import SESSION_COOKIE, hash_token
+from app.auth import SESSION_COOKIE, hash_password, hash_token
 from app.config import Settings, get_settings
 from app.database import get_db
 from app.enums import DocumentType, IdentityStatus
 from app.extraction import get_llm_client
 from app.main import app
-from app.models import Base, IdentityVerification, User, UserSession
+from app.models import Base, IdentityVerification, PaymentPin, User, UserSession
 from app.ocr import get_ocr_engine
+from app.pin import PIN_HEADER
 
 MAIN_DATABASE_URL = make_url(get_settings().database_url)
 TEST_DATABASE_NAME = f"{MAIN_DATABASE_URL.database}_test"
@@ -147,13 +148,25 @@ def anonymous_client(
     app.dependency_overrides.clear()
 
 
+# Every test user's payment PIN. Hashed once, because Argon2 is slow on purpose.
+TEST_PIN = "4826"
+TEST_PIN_HASH = hash_password(TEST_PIN)
+
+
 def log_in_as(
-    client: TestClient, db_session: Session, email: str, *, verified: bool = True
+    client: TestClient,
+    db_session: Session,
+    email: str,
+    *,
+    verified: bool = True,
+    pin: bool = True,
 ) -> User:
     """Create a user with a session and give the client its cookie.
 
     The user has passed the identity check unless `verified=False`, because
-    most tests are about something else and need to send money.
+    most tests are about something else and need to send money. For the
+    same reason the user has a payment PIN and the client sends it with
+    every request, unless `pin=False`.
 
     The rows are written directly, which skips the slow password hashing.
     The real register and login endpoints are tested in test_auth.py.
@@ -183,6 +196,9 @@ def log_in_as(
                 document_last4="4567",
             )
         )
+    if pin:
+        db_session.add(PaymentPin(user_id=user.id, pin_hash=TEST_PIN_HASH, failed_attempts=0))
+        client.headers[PIN_HEADER] = TEST_PIN
     db_session.commit()
     client.cookies.set(SESSION_COOKIE, token)
     return user

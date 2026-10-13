@@ -11,6 +11,7 @@ from app.database import DbSession
 from app.enums import TransferKind
 from app.extraction.schemas import DEFAULT_CURRENCY
 from app.models import Expense, Household, Settlement, User
+from app.pin import PayingUser
 from app.schemas.expense import ExpenseRead
 from app.schemas.household import (
     BalanceRead,
@@ -288,7 +289,7 @@ def record_settlement(
 
 
 @router.post("/pay", response_model=SettlementRead, status_code=status.HTTP_201_CREATED)
-def pay_from_wallet(payload: WalletPayment, db: DbSession, user: CurrentUser) -> SettlementRead:
+def pay_from_wallet(payload: WalletPayment, db: DbSession, user: PayingUser) -> SettlementRead:
     """Pay a housemate from the wallet and record the settlement, together.
 
     Both changes are in one database transaction: the money moves and the

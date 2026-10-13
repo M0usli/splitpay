@@ -7,6 +7,7 @@ from app.database import DbSession
 from app.enums import TransferKind
 from app.identity import is_verified
 from app.models import User, Wallet, WalletTransfer
+from app.pin import PayingUser
 from app.schemas.wallet import (
     LimitsRead,
     SendRequest,
@@ -107,7 +108,7 @@ def top_up(payload: TopUpRequest, db: DbSession, user: CurrentUser) -> TransferR
 
 
 @router.post("/send", response_model=TransferResult)
-def send_money(payload: SendRequest, db: DbSession, user: CurrentUser) -> TransferResult:
+def send_money(payload: SendRequest, db: DbSession, user: PayingUser) -> TransferResult:
     """Send money to another user, found by their email."""
     if payload.to_email == user.email:
         raise HTTPException(

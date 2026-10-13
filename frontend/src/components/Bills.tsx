@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 
 import AmountPad from "@/components/AmountPad";
+import PinPrompt from "@/components/PinPrompt";
 import StepHeader from "@/components/StepHeader";
 import {
   getWallet,
@@ -45,6 +46,8 @@ type View =
   | { name: "pay-amount"; saved: SavedBiller }
   // The request id is made when this step opens and reused if Confirm is tapped twice.
   | { name: "pay-confirm"; saved: SavedBiller; amount: string; requestId: string }
+  // The last step: the payment PIN.
+  | { name: "pay-pin"; saved: SavedBiller; amount: string; requestId: string }
   | { name: "receipt"; payment: BillPayment; isNew: boolean };
 
 const BILL_AMOUNTS = ["25", "50", "75", "100"];
@@ -314,18 +317,36 @@ export default function Bills() {
         <p className="text-sm text-zinc-600">Account {bill.saved.account_number}</p>
         <button
           type="button"
-          disabled={isBusy}
-          onClick={() =>
-            void run(async () => {
-              const payment = await payBill(bill.saved.id, bill.amount, bill.requestId);
-              return { next: { name: "receipt", payment, isNew: true }, message: null };
-            })
-          }
+          onClick={() => {
+            setActionError(null);
+            setView({ ...bill, name: "pay-pin" });
+          }}
           className={`${primaryButtonClass} mt-6`}
         >
-          {isBusy ? "Paying…" : "Confirm and pay"}
+          Confirm and pay
         </button>
       </section>
+    );
+  }
+
+  if (view.name === "pay-pin") {
+    const bill = view;
+    return (
+      <PinPrompt
+        what={`Pay ${bill.saved.biller.name} ${formatMoney(bill.amount, wallet.currency)}`}
+        error={actionError}
+        isBusy={isBusy}
+        onBack={() => {
+          setActionError(null);
+          setView({ ...bill, name: "pay-confirm" });
+        }}
+        onSubmit={(pin) =>
+          run(async () => {
+            const payment = await payBill(bill.saved.id, bill.amount, bill.requestId, pin);
+            return { next: { name: "receipt", payment, isNew: true }, message: null };
+          })
+        }
+      />
     );
   }
 

@@ -75,6 +75,9 @@ Added in version 3 (in progress):
   paying: sends, paid requests, split-bill payments and bills. The check is
   a simulation with two rules (18 or older; a document number ending in 0000
   is always rejected, to show that path). No real document is ever asked for.
+- **Payment PIN.** A 4-digit PIN, made on the Security page, is asked for
+  every time money leaves the wallet. Five wrong tries lock it for 15
+  minutes.
 - **Pay bills.** Save a company (electricity, internet, mobile; all made
   up) with your account number, pay it from the wallet, and get a receipt
   with a reference number for every payment.
@@ -232,6 +235,8 @@ with pretend transactions. The app cannot be pointed at real accounts.
 | GET | `/wallet` | The logged-in user's wallet balance (pretend money) |
 | POST | `/wallet/top-up` | Add pretend money to the wallet |
 | POST | `/wallet/send` | Send money to another user by email |
+| GET | `/wallet/pin` | Whether the user has a payment PIN, and whether it is locked |
+| PUT | `/wallet/pin` | Create the PIN, or change it by giving the current one |
 | GET | `/wallet/limits` | The daily sending limit and how much is left today |
 | GET | `/wallet/transactions` | Money in and out, newest first |
 | POST | `/wallet/requests` | Ask another user for money; nothing moves yet |
@@ -327,6 +332,7 @@ receipt-tracker/
 │   │   ├── wallet.py       the ledger: moving pretend money between wallets
 │   │   ├── billers.py      the made-up companies a bill can be paid to
 │   │   ├── identity.py     the identity check (simulated KYC)
+│   │   ├── pin.py          the payment PIN: checking it, counting wrong tries, locking
 │   │   ├── spending.py     the one function every payment goes through, and the daily limits
 │   │   ├── routers/        the HTTP endpoints
 │   │   ├── schemas/        Pydantic request and response shapes
@@ -338,7 +344,7 @@ receipt-tracker/
 │   └── tests/
 ├── frontend/
 │   └── src/
-│       ├── app/            pages (Wallet, Bills, Verify, Upload, Review, Expenses, Dashboard, Split bill, Recurring, Bank, Log in, Sign up)
+│       ├── app/            pages (Wallet, Bills, Verify, Security, Upload, Review, Expenses, Dashboard, Split bill, Recurring, Bank, Log in, Sign up)
 │       ├── components/     React components and their tests
 │       └── lib/            API client, generated types, formatting helpers
 ├── eval/                   test receipts, labels and results
@@ -409,6 +415,13 @@ receipt-tracker/
   the ledger, which checks it under the same row lock as the balance, so two
   payments at the same moment cannot both slip under the limit. The page
   shows the limit too, but the server is what enforces it.
+- **Being logged in is not enough to pay.** The four paying endpoints ask
+  for a `PayingUser`, a dependency that checks the PIN sent in the
+  `X-Payment-Pin` header. The PIN is stored as an Argon2 hash. Because four
+  digits are only 10,000 possibilities, wrong tries are counted and the PIN
+  locks after five; the count is saved even though the request fails, and
+  the PIN's row is locked while it is checked so parallel guesses are
+  counted one by one. Forgetting the PIN has no reset flow yet.
 - **Only what is needed is kept.** The document number is used for the
   check and then dropped; the database stores its last 4 characters. A real
   wallet would hand documents to a specialist provider and would also check

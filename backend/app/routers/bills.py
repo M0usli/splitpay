@@ -7,6 +7,7 @@ from app.billers import BILLERS, BILLERS_BY_CODE
 from app.database import DbSession
 from app.enums import TransferKind
 from app.models import BillPayment, SavedBiller
+from app.pin import PayingUser
 from app.schemas.bill import (
     BillerRead,
     BillPay,
@@ -109,7 +110,7 @@ def remove_saved_biller(saved_id: int, db: DbSession, user: CurrentUser) -> None
 
 
 @router.post("/pay", response_model=BillPaymentRead, status_code=status.HTTP_201_CREATED)
-def pay_bill(payload: BillPay, db: DbSession, user: CurrentUser) -> BillPaymentRead:
+def pay_bill(payload: BillPay, db: DbSession, user: PayingUser) -> BillPaymentRead:
     """Pay a bill from the wallet and write its receipt, together.
 
     The money goes to the outside-world wallet, the opposite of a top-up:

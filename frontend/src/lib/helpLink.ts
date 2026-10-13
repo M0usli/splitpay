@@ -10,6 +10,9 @@ export function helpLinkFor(message: string | null): HelpLink | null {
   if (message.includes("Verify your identity")) {
     return { href: "/verify", label: "Verify your identity" };
   }
+  if (message.includes("Set a payment PIN")) {
+    return { href: "/security", label: "Set a payment PIN" };
+  }
   if (message.includes("enough money")) {
     return { href: "/", label: "Add money to your wallet" };
   }

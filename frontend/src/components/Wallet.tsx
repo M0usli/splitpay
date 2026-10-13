@@ -5,6 +5,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import AmountPad from "@/components/AmountPad";
+import PinPrompt from "@/components/PinPrompt";
 import StepHeader from "@/components/StepHeader";
 import { useAuth } from "@/components/AuthProvider";
 import {
@@ -64,7 +65,10 @@ type View =
   | { name: "who"; mode: Mode }
   | { name: "amount"; mode: Mode; toEmail: string }
   // The request id is made when this step opens and reused if Confirm is tapped twice.
-  | { name: "send-confirm"; toEmail: string; amount: string; note: string | null; requestId: string };
+  | { name: "send-confirm"; toEmail: string; amount: string; note: string | null; requestId: string }
+  // The last step of every payment. `pay` does the payment once it has the PIN
+  // and returns the message to show; `back` is the screen the Back button returns to.
+  | { name: "pin"; what: string; back: View; pay: (pin: string) => Promise<string> };
 
 const TOP_UP_AMOUNTS = ["20", "50", "100", "200"];
 const SEND_AMOUNTS = ["5", "10", "20", "50"];
@@ -281,13 +285,21 @@ export default function Wallet({ payLink = null }: { payLink?: PayLink | null })
     });
   }
 
-  /** One tap: pay a housemate exactly what the split bill says is owed. */
+  /** Open the PIN step for a payment. Nothing is paid until the PIN is entered. */
+  function askForPin(what: string, back: View, pay: (pin: string) => Promise<string>) {
+    setNotice(null);
+    setActionError(null);
+    setView({ name: "pin", what, back, pay });
+  }
+
+  /** Pay a housemate exactly what the split bill says is owed. */
   function handlePayDebt(debt: Debt) {
     const action = `pay-${debt.toId}-${debt.amount}`;
-    void run(async () => {
-      await payFromWallet(debt.toId, debt.amount, payIds.current.idFor(action));
+    const amountText = formatMoney(debt.amount, "CAD");
+    askForPin(`Pay ${debt.toEmail} ${amountText} for your split bill`, { name: "home" }, async (pin) => {
+      await payFromWallet(debt.toId, debt.amount, payIds.current.idFor(action), pin);
       payIds.current.forget(action);
-      return `You paid ${debt.toEmail} ${formatMoney(debt.amount, "CAD")} for your split bill.`;
+      return `You paid ${debt.toEmail} ${amountText} for your split bill.`;
     });
   }
 
@@ -301,13 +313,14 @@ export default function Wallet({ payLink = null }: { payLink?: PayLink | null })
     });
   }
 
-  /** One tap: pay a request someone sent. */
+  /** Pay a request someone sent. */
   function handlePayRequest(request: MoneyRequest) {
     const action = `request-${request.id}`;
-    void run(async () => {
-      await payMoneyRequest(request.id, payIds.current.idFor(action));
+    const amountText = formatMoney(request.amount, "CAD");
+    askForPin(`Pay ${request.counterparty} ${amountText}`, { name: "home" }, async (pin) => {
+      await payMoneyRequest(request.id, payIds.current.idFor(action), pin);
       payIds.current.forget(action);
-      return `You paid ${request.counterparty} ${formatMoney(request.amount, "CAD")}.`;
+      return `You paid ${request.counterparty} ${amountText}.`;
     });
   }
 
@@ -359,6 +372,22 @@ export default function Wallet({ payLink = null }: { payLink?: PayLink | null })
       )}
     </div>
   );
+
+  if (view.name === "pin") {
+    const step = view;
+    return (
+      <PinPrompt
+        what={step.what}
+        error={actionError}
+        isBusy={isBusy}
+        onBack={() => {
+          setActionError(null);
+          setView(step.back);
+        }}
+        onSubmit={(pin) => run(() => step.pay(pin))}
+      />
+    );
+  }
 
   if (view.name === "add") {
     return (
@@ -591,16 +620,16 @@ export default function Wallet({ payLink = null }: { payLink?: PayLink | null })
         {send.note !== null && <p className="mt-1 text-sm text-zinc-600">For: {send.note}</p>}
         <button
           type="button"
-          disabled={isBusy}
-          onClick={() =>
-            void run(async () => {
-              await sendMoney(send, send.requestId);
-              return `${formatMoney(send.amount, "CAD")} was sent to ${send.toEmail}.`;
-            })
-          }
+          onClick={() => {
+            const amountText = formatMoney(send.amount, "CAD");
+            askForPin(`Send ${amountText} to ${send.toEmail}`, send, async (pin) => {
+              await sendMoney(send, send.requestId, pin);
+              return `${amountText} was sent to ${send.toEmail}.`;
+            });
+          }}
           className={`${primaryButtonClass} mt-6`}
         >
-          {isBusy ? "Sending…" : "Confirm and send"}
+          Confirm and send
         </button>
       </section>
     );
