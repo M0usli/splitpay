@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     defaults for running the backend outside Docker.
     """
 
-    app_name: str = "Receipt Tracker API"
+    app_name: str = "SplitPay API"
     database_url: str = "postgresql+psycopg://receipts:receipts@localhost:5432/receipts"
     frontend_origin: str = "http://localhost:3000"
     # A second address the frontend may be opened from: this computer's

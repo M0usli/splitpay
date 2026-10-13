@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.expense import ExpenseRead, Money, SplitItem
 from app.schemas.stats import Amount
+from app.schemas.wallet import IdempotencyKey, TransferAmount
 
 
 class HouseholdCreate(BaseModel):
@@ -78,6 +79,15 @@ class SettlementCreate(BaseModel):
     currency: str = Field(default="CAD", pattern="^[A-Z]{3}$")
 
 
+class WalletPayment(BaseModel):
+    """Request body for paying a housemate from the wallet."""
+
+    to_user_id: int
+    amount: TransferAmount
+    # Made by the app for this one payment, so a double tap pays once.
+    idempotency_key: IdempotencyKey
+
+
 class SettlementRead(BaseModel):
     """A recorded payment between two members."""
 
@@ -86,6 +96,8 @@ class SettlementRead(BaseModel):
     paid_to: MemberRead
     amount: Amount
     currency: str
+    # True when the money really moved between the two wallets.
+    paid_from_wallet: bool
     created_at: datetime.datetime
 
 

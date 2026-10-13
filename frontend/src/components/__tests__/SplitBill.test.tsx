@@ -10,6 +10,7 @@ import {
   joinHousehold,
   listSettlements,
   listSharedExpenses,
+  payFromWallet,
   recordSettlement,
   type Balance,
   type Household,
@@ -30,6 +31,7 @@ vi.mock("@/lib/api", () => ({
   leaveHousehold: vi.fn(),
   listSettlements: vi.fn(),
   listSharedExpenses: vi.fn(),
+  payFromWallet: vi.fn(),
   recordSettlement: vi.fn(),
 }));
 
@@ -119,11 +121,54 @@ test("shows the household, its code and where each member stands", async () => {
   expect(members.getByText("is owed $30.00")).toBeInTheDocument();
 });
 
-test("the person who owes can record that they paid", async () => {
+test("the exact amount owed is on a button that pays it from the wallet", async () => {
   mockHousehold(SAM_OWES);
   render(<SplitBill />);
 
-  await userEvent.click(await screen.findByRole("button", { name: "I paid this" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Pay $30.00 from wallet" }));
+
+  expect(payFromWallet).toHaveBeenCalledWith(2, "30.00", expect.stringMatching(/^[0-9a-f]{32}$/));
+  expect(recordSettlement).not.toHaveBeenCalled();
+  expect(await screen.findByRole("status")).toHaveTextContent(
+    "You paid alex@example.com $30.00 from your wallet.",
+  );
+});
+
+test("a payment that fails and is tried again uses the same request id", async () => {
+  mockHousehold(SAM_OWES);
+  vi.mocked(payFromWallet).mockRejectedValueOnce(new Error("Could not reach the backend."));
+  render(<SplitBill />);
+
+  await userEvent.click(await screen.findByRole("button", { name: "Pay $30.00 from wallet" }));
+  await screen.findByRole("alert");
+  await userEvent.click(screen.getByRole("button", { name: "Pay $30.00 from wallet" }));
+  await screen.findByRole("status");
+
+  const [first, second] = vi.mocked(payFromWallet).mock.calls.map((call) => call[2]);
+  expect(first).toBe(second);
+});
+
+test("not enough money shows the reason and a link to the wallet", async () => {
+  mockHousehold(SAM_OWES);
+  vi.mocked(payFromWallet).mockRejectedValue(
+    new Error("You do not have enough money in your wallet."),
+  );
+  render(<SplitBill />);
+
+  await userEvent.click(await screen.findByRole("button", { name: "Pay $30.00 from wallet" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("You do not have enough money");
+  expect(screen.getByRole("link", { name: "Add money to your wallet" })).toHaveAttribute(
+    "href",
+    "/",
+  );
+});
+
+test("a payment made outside the app can still be recorded by hand", async () => {
+  mockHousehold(SAM_OWES);
+  render(<SplitBill />);
+
+  await userEvent.click(await screen.findByRole("button", { name: "I paid another way" }));
 
   expect(recordSettlement).toHaveBeenCalledWith(2, "30.00");
   // The page loads its data again to show the new balance.
@@ -142,7 +187,23 @@ test("someone who is owed money gets no pay button", async () => {
   render(<SplitBill />);
 
   expect(await screen.findByText("You are owed $30.00 in total.")).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "I paid this" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /from wallet/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "I paid another way" })).not.toBeInTheDocument();
+});
+
+test("a wallet payment is marked and cannot be undone, a recorded one can", async () => {
+  mockHousehold(SETTLED);
+  vi.mocked(listSettlements).mockResolvedValue([
+    { id: 1, paid_by: SAM, paid_to: ALEX, amount: "30.00", currency: "CAD", paid_from_wallet: true, created_at: "2026-10-13T09:00:00Z" },
+    { id: 2, paid_by: SAM, paid_to: ALEX, amount: "5.00", currency: "CAD", paid_from_wallet: false, created_at: "2026-10-12T09:00:00Z" },
+  ]);
+  render(<SplitBill />);
+
+  const made = within(await screen.findByRole("region", { name: "Payments made" }));
+  const [fromWallet, byHand] = made.getAllByRole("listitem");
+  expect(fromWallet).toHaveTextContent("from wallet");
+  expect(within(fromWallet).queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
+  expect(within(byHand).getByRole("button", { name: "Undo" })).toBeInTheDocument();
 });
 
 test("says so when everyone is settled up", async () => {

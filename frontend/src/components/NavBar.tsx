@@ -7,13 +7,13 @@ import { useAuth } from "@/components/AuthProvider";
 import { logout } from "@/lib/api";
 
 const links = [
-  { href: "/", label: "Upload" },
+  { href: "/", label: "Wallet" },
+  { href: "/upload", label: "Upload" },
   { href: "/expenses", label: "Expenses" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/household", label: "Split bill" },
   { href: "/recurring", label: "Recurring" },
   { href: "/bank", label: "Bank" },
-  { href: "/expenses/new", label: "Add expense" },
 ];
 
 export default function NavBar() {
@@ -44,7 +44,7 @@ export default function NavBar() {
           the phone layout and the lg: ones change it for wide screens. */}
       <nav className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-6 gap-y-1 px-6 py-3 lg:flex-nowrap">
         <Link href="/" className="whitespace-nowrap font-semibold tracking-tight">
-          Receipt Tracker
+          SplitPay
         </Link>
         {auth.state === "signedIn" && (
           <>

@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Receipt Tracker",
-  description: "Scan receipts and track expenses with OCR and an LLM",
+  title: "SplitPay",
+  description: "A wallet for sending money and splitting bills, with receipt scanning",
   // The icon an iPhone uses when the site is added to the home screen.
   icons: { apple: "/icons/apple-touch-icon.png" },
 };

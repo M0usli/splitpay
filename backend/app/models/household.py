@@ -23,6 +23,12 @@ class Settlement(Base):
     to_user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     amount: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     currency: Mapped[str] = mapped_column(String(3), default="CAD")
+    # Set when the payment was made from the wallet: the ledger row that moved
+    # the money. Empty when the user only recorded a payment made elsewhere
+    # (cash, a bank transfer). unique=True: one settlement per transfer.
+    wallet_transfer_id: Mapped[int | None] = mapped_column(
+        ForeignKey("wallet_transfers.id"), unique=True
+    )
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

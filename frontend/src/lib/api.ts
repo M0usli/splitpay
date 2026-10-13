@@ -30,6 +30,9 @@ export type Settlement = Schemas["SettlementRead"];
 export type BankStatus = Schemas["BankStatus"];
 export type BankTransaction = Schemas["BankTransactionRead"];
 export type Recurring = Schemas["RecurringRead"];
+export type Wallet = Schemas["WalletRead"];
+export type WalletTransaction = Schemas["TransactionRead"];
+export type TransferResult = Schemas["TransferResult"];
 export type RecurringWrite = Schemas["RecurringWrite"];
 export type User = Schemas["UserRead"];
 export type Credentials = Schemas["Credentials"];
@@ -211,6 +214,21 @@ export function recordSettlement(toUserId: number, amount: string): Promise<Sett
   return request("/household/settlements", jsonRequest("POST", { to_user_id: toUserId, amount }));
 }
 
+/**
+ * Pay a housemate from the wallet. The money moves and the debt is marked
+ * as paid together. A repeat with the same `requestId` pays only once.
+ */
+export function payFromWallet(
+  toUserId: number,
+  amount: string,
+  requestId: string,
+): Promise<Settlement> {
+  return request(
+    "/household/pay",
+    jsonRequest("POST", { to_user_id: toUserId, amount, idempotency_key: requestId }),
+  );
+}
+
 export function deleteSettlement(id: number): Promise<void> {
   return request(`/household/settlements/${id}`, { method: "DELETE" });
 }
@@ -254,6 +272,39 @@ export function addBankTransaction(id: number, category: Category): Promise<Expe
 
 export function ignoreBankTransaction(id: number): Promise<BankTransaction> {
   return request(`/bank/transactions/${id}/ignore`, { method: "POST" });
+}
+
+export function getWallet(): Promise<Wallet> {
+  return request("/wallet");
+}
+
+/** Money in and out of the wallet, newest first. */
+export function listWalletTransactions(): Promise<WalletTransaction[]> {
+  return request("/wallet/transactions");
+}
+
+/**
+ * Add pretend money to the wallet. `requestId` identifies this one action:
+ * sending it again with the same id adds the money only once.
+ */
+export function topUpWallet(amount: string, requestId: string): Promise<TransferResult> {
+  return request("/wallet/top-up", jsonRequest("POST", { amount, idempotency_key: requestId }));
+}
+
+/** Send money to another user. A repeat with the same `requestId` moves it only once. */
+export function sendMoney(
+  send: { toEmail: string; amount: string; note: string | null },
+  requestId: string,
+): Promise<TransferResult> {
+  return request(
+    "/wallet/send",
+    jsonRequest("POST", {
+      to_email: send.toEmail,
+      amount: send.amount,
+      note: send.note,
+      idempotency_key: requestId,
+    }),
+  );
 }
 
 export function listRecurring(): Promise<Recurring[]> {

@@ -73,7 +73,7 @@ class PlaidClient:
         reply = self._post(
             "/link/token/create",
             {
-                "client_name": "Receipt Tracker",
+                "client_name": "SplitPay",
                 "language": "en",
                 "country_codes": ["CA", "US"],
                 "products": ["transactions"],

@@ -29,7 +29,7 @@ test("a signed-out visitor sees only the app name", () => {
   mocks.auth = { state: "signedOut" };
   render(<NavBar />);
 
-  expect(screen.getByRole("link", { name: "Receipt Tracker" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "SplitPay" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Menu" })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Expenses" })).not.toBeInTheDocument();
 });
@@ -37,7 +37,7 @@ test("a signed-out visitor sees only the app name", () => {
 test("a signed-in user gets a link to every page, and their email", () => {
   render(<NavBar />);
 
-  for (const name of ["Upload", "Expenses", "Dashboard", "Split bill", "Recurring", "Bank", "Add expense"]) {
+  for (const name of ["Wallet", "Upload", "Expenses", "Dashboard", "Split bill", "Recurring", "Bank"]) {
     expect(screen.getByRole("link", { name })).toBeInTheDocument();
   }
   expect(screen.getByText("sam@example.com")).toBeInTheDocument();

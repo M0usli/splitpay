@@ -426,6 +426,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/household/pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pay From Wallet
+         * @description Pay a housemate from the wallet and record the settlement, together.
+         *
+         *     Both changes are in one database transaction: the money moves and the
+         *     debt is marked as paid, or neither happens. There is never a moment
+         *     where the money has left but the debt is still shown.
+         */
+        post: operations["pay_from_wallet_household_pay_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/household/settlements/{settlement_id}": {
         parameters: {
             query?: never;
@@ -1301,6 +1325,8 @@ export interface components {
             amount: string;
             /** Currency */
             currency: string;
+            /** Paid From Wallet */
+            paid_from_wallet: boolean;
             /**
              * Created At
              * Format: date-time
@@ -1500,7 +1526,7 @@ export interface components {
          * @description Why money moved between two wallets.
          * @enum {string}
          */
-        TransferKind: "top_up" | "send";
+        TransferKind: "top_up" | "send" | "settlement";
         /**
          * TransferResult
          * @description What a top-up or a send returns: the new line of history and the new balance.
@@ -1550,6 +1576,18 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * WalletPayment
+         * @description Request body for paying a housemate from the wallet.
+         */
+        WalletPayment: {
+            /** To User Id */
+            to_user_id: number;
+            /** Amount */
+            amount: number | string;
+            /** Idempotency Key */
+            idempotency_key: string;
         };
         /**
          * WalletRead
@@ -2391,6 +2429,41 @@ export interface operations {
             };
         };
     };
+    pay_from_wallet_household_pay_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WalletPayment"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettlementRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_settlement_household_settlements__settlement_id__delete: {
         parameters: {
             query?: never;
@@ -2995,4 +3068,4 @@ export const categoryValues: ReadonlyArray<FlattenedDeepRequired<components>["sc
 export const healthResponseDatabaseValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["HealthResponse"]["database"]> = ["ok", "unavailable"];
 export const receiptStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ReceiptStatus"]> = ["pending", "extracted", "failed"];
 export const transactionReadDirectionValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TransactionRead"]["direction"]> = ["in", "out"];
-export const transferKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TransferKind"]> = ["top_up", "send"];
+export const transferKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TransferKind"]> = ["top_up", "send", "settlement"];

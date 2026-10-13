@@ -27,6 +27,7 @@ class TransferKind(StrEnum):
 
     TOP_UP = "top_up"  # pretend money added from outside
     SEND = "send"  # one user sent money to another
+    SETTLEMENT = "settlement"  # paying back a split-bill debt to a housemate
 
 
 class ReceiptStatus(StrEnum):
