@@ -9,6 +9,9 @@ const phoneHostname = process.env.PHONE_ORIGIN
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: phoneHostname === null ? [] : [phoneHostname],
+  // Browser code only sees variables named here. The Wallet page needs the
+  // phone address to put it inside the "pay me" QR code.
+  env: { NEXT_PUBLIC_PHONE_ORIGIN: process.env.PHONE_ORIGIN ?? "" },
   cacheComponents: true,
   partialPrefetching: true,
   // Inside Docker on Windows/macOS, file-change events from the host don't

@@ -69,6 +69,10 @@ Added in version 3 (in progress):
 - **Request money.** Ask another user for an amount. They see it on their
   Wallet page with Pay and Decline buttons; the person who asked can cancel
   it while it is waiting.
+- **Get paid with a QR code.** "My code" on the Wallet page shows a QR code,
+  for any amount or a fixed one. Someone scans it with their phone camera and
+  lands on the send screen filled in, ready to confirm. Scanning from a phone
+  needs `PHONE_ORIGIN` set, as for opening the app on a phone.
 - **Pay what you owe in one tap.** The Wallet and Split bill pages show the
   exact amount owed to each housemate on a button that pays it from the
   wallet.
@@ -378,6 +382,12 @@ receipt-tracker/
   ends as paid, declined or cancelled. The backend locks the request's row
   while it changes, so Pay tapped on two devices at the same moment moves
   the money once, and a finished request cannot change again.
+- **A QR code is only a link.** The code holds an address such as
+  `/?pay=sam@example.com&amount=12.50`, nothing secret. Opening it never
+  moves money: it fills in the send screen and the payer must still confirm.
+  The values are checked when the link is read, because anyone can type an
+  address. A signed-out visitor is sent to log in and then back to the link;
+  the log-in page only follows paths inside the app, never another website.
 - **Sending money takes two steps.** The Wallet page shows the amount and
   the recipient back for confirmation before anything moves. The request id
   (idempotency key) is made when that confirm step opens, so pressing

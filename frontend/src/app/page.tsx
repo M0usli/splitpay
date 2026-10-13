@@ -1,4 +1,6 @@
-import Wallet from "@/components/Wallet";
+import { Suspense } from "react";
+
+import WalletHome from "@/components/WalletHome";
 
 // The home page: the wallet is the first thing a signed-in user sees.
 export default function HomePage() {
@@ -8,7 +10,11 @@ export default function HomePage() {
       <p className="mt-1 text-sm text-zinc-600">Your balance, and money you send and receive.</p>
 
       <div className="mt-6">
-        <Wallet />
+        {/* WalletHome reads the address (a scanned code puts a pay link in it),
+            which is only known in the browser. */}
+        <Suspense fallback={<p className="text-zinc-500">Loading…</p>}>
+          <WalletHome />
+        </Suspense>
       </div>
     </main>
   );

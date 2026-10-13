@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 
 import { useAuth } from "@/components/AuthProvider";
+import { loginPathFor, safeReturnPath } from "@/lib/returnPath";
 
 // Pages a signed-out visitor may see.
 const PUBLIC_PATHS = ["/login", "/register"];
@@ -29,9 +30,12 @@ export default function RequireLogin({ children }: { children: ReactNode }) {
     // replace, not push: the Back button should not return to a page the
     // visitor was just sent away from.
     if (mustLogIn) {
-      router.replace("/login");
+      // Remember the page that was asked for (a scanned pay link, for
+      // example), so logging in comes back to it.
+      router.replace(loginPathFor(window.location.pathname + window.location.search));
     } else if (alreadyLoggedIn) {
-      router.replace("/");
+      const next = new URLSearchParams(window.location.search).get("next");
+      router.replace(safeReturnPath(next));
     }
   }, [mustLogIn, alreadyLoggedIn, router]);
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import AmountPad from "@/components/AmountPad";
@@ -23,6 +24,7 @@ import {
 } from "@/lib/api";
 import { finishAmount, isPositiveAmount } from "@/lib/amountInput";
 import { formatMoney } from "@/lib/format";
+import { buildPayLink, isLocalOnly, payLinkOrigin, type PayLink } from "@/lib/payLink";
 import { newRequestId, RequestIds } from "@/lib/requestId";
 
 type WalletData = {
@@ -50,6 +52,8 @@ type Mode = "send" | "request";
 type View =
   | { name: "home" }
   | { name: "add" }
+  // The user's own "pay me" QR code.
+  | { name: "my-code" }
   | { name: "who"; mode: Mode }
   | { name: "amount"; mode: Mode; toEmail: string }
   // The request id is made when this step opens and reused if Confirm is tapped twice.
@@ -59,6 +63,8 @@ const TOP_UP_AMOUNTS = ["20", "50", "100", "200"];
 const SEND_AMOUNTS = ["5", "10", "20", "50"];
 const QUICK_NOTES = ["Rent", "Groceries", "Food", "Bills", "Thanks"];
 const MAX_PEOPLE_SHOWN = 6;
+// This computer's address on the Wi-Fi, from PHONE_ORIGIN in .env. Empty when not set.
+const PHONE_ORIGIN = process.env.NEXT_PUBLIC_PHONE_ORIGIN ?? "";
 
 const cardClass = "rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm";
 const primaryButtonClass =
@@ -93,6 +99,27 @@ async function loadWalletData(myEmail: string): Promise<WalletData> {
   // Paid ones are in the history; declined and cancelled ones are finished.
   const requests = allRequests.filter((request) => request.status === "pending");
   return { wallet, transactions, housemates, debts, requests };
+}
+
+/**
+ * The screen to start on. A scanned code opens the send steps filled in:
+ * the confirm step when the code fixes the amount, else "how much".
+ * Either way the money only moves when Confirm is tapped.
+ */
+function firstView(payLink: PayLink | null): View {
+  if (payLink === null) {
+    return { name: "home" };
+  }
+  if (payLink.amount === null) {
+    return { name: "amount", mode: "send", toEmail: payLink.toEmail };
+  }
+  return {
+    name: "send-confirm",
+    toEmail: payLink.toEmail,
+    amount: payLink.amount,
+    note: null,
+    requestId: newRequestId(),
+  };
 }
 
 /** People to offer as one-tap choices: housemates first, then people from the history. */
@@ -172,13 +199,16 @@ function ActionButton({ label, onClick, children }: { label: string; onClick: ()
   );
 }
 
-/** The Wallet page: the balance, adding money, sending money, and the history. */
-export default function Wallet() {
+/**
+ * The Wallet page: the balance, adding money, sending money, and the history.
+ * `payLink` is set when the page was opened by scanning someone's code.
+ */
+export default function Wallet({ payLink = null }: { payLink?: PayLink | null }) {
   const { auth } = useAuth();
   const myEmail = auth.state === "signedIn" ? auth.user.email : "";
 
   const [status, setStatus] = useState<Status>({ state: "loading" });
-  const [view, setView] = useState<View>({ name: "home" });
+  const [view, setView] = useState<View>(() => firstView(payLink));
   const [isBusy, setIsBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -188,6 +218,7 @@ export default function Wallet() {
   const [note, setNote] = useState("");
   const [otherEmail, setOtherEmail] = useState("");
   const [isTypingEmail, setIsTypingEmail] = useState(false);
+  const [isSettingAmount, setIsSettingAmount] = useState(false);
   // Remembers the request id of each Pay button until its payment succeeds.
   const payIds = useRef(new RequestIds());
 
@@ -215,6 +246,7 @@ export default function Wallet() {
     setNote("");
     setOtherEmail("");
     setIsTypingEmail(false);
+    setIsSettingAmount(false);
     setActionError(null);
     if (next.name !== "home") {
       setNotice(null);
@@ -332,6 +364,63 @@ export default function Wallet() {
         >
           {isPositiveAmount(amount) ? `Add ${formatMoney(finishAmount(amount), wallet.currency)}` : "Add money"}
         </button>
+      </section>
+    );
+  }
+
+  if (view.name === "my-code") {
+    const fixedAmount = isPositiveAmount(amount) ? finishAmount(amount) : null;
+    const origin = payLinkOrigin(window.location.origin, PHONE_ORIGIN);
+    const link = buildPayLink(origin, myEmail, fixedAmount);
+    return (
+      <section className={`${cardClass} mx-auto max-w-md`} aria-label="My code">
+        <StepHeader title="Get paid with a code" onBack={() => open({ name: "home" })} />
+        <div className="flex justify-center">
+          {/* The QR code is only a picture of the link below it. */}
+          <QRCodeSVG value={link} size={220} marginSize={2} title={`Code to pay ${myEmail}`} />
+        </div>
+        <p className="mt-3 text-center text-sm">
+          Scanning this pays <strong>{myEmail}</strong>
+          {fixedAmount === null ? ", any amount." : ` ${formatMoney(fixedAmount, wallet.currency)}.`}
+        </p>
+        <p className="mt-1 break-all text-center text-xs text-zinc-500">{link}</p>
+        {isLocalOnly(origin) && (
+          <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            This code only works on this computer. To scan it with a phone, set PHONE_ORIGIN in
+            the .env file (the README explains how).
+          </p>
+        )}
+
+        {isSettingAmount ? (
+          <div className="mt-5">
+            <AmountPad
+              value={amount}
+              onChange={setAmount}
+              quickAmounts={SEND_AMOUNTS}
+              label="Amount to ask for"
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setIsSettingAmount(true)}
+            className="mt-4 w-full rounded-xl border border-dashed border-zinc-300 px-4 py-3 text-sm font-medium text-zinc-700 hover:border-indigo-400"
+          >
+            Set an amount
+          </button>
+        )}
+      </section>
+    );
+  }
+
+  // Someone scanned their own code: there is nobody to pay.
+  if ((view.name === "amount" || view.name === "send-confirm") && view.toEmail === myEmail) {
+    return (
+      <section className={`${cardClass} mx-auto max-w-md`} aria-label="Send money">
+        <StepHeader title="This is your own code" onBack={() => open({ name: "home" })} />
+        <p className="text-sm text-zinc-600">
+          Someone else has to scan it to pay you. You cannot send money to yourself.
+        </p>
       </section>
     );
   }
@@ -522,7 +611,7 @@ export default function Wallet() {
         <p className="mt-2 text-xs text-indigo-100">
           Pretend money, for demonstration. Nothing here is connected to a real bank.
         </p>
-        <div className="mt-6 flex gap-8">
+        <div className="mt-6 flex max-w-sm justify-between gap-2">
           <ActionButton label="Add money" onClick={() => open({ name: "add" })}>
             +
           </ActionButton>
@@ -531,6 +620,9 @@ export default function Wallet() {
           </ActionButton>
           <ActionButton label="Request" onClick={() => open({ name: "who", mode: "request" })}>
             ↙
+          </ActionButton>
+          <ActionButton label="My code" onClick={() => open({ name: "my-code" })}>
+            ▦
           </ActionButton>
         </div>
       </section>

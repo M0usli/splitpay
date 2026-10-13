@@ -29,8 +29,15 @@ function renderPage() {
   );
 }
 
+/** Put an address in the test browser's address bar. */
+function openAddress(path: string) {
+  window.history.replaceState(null, "", path);
+  mocks.pathname = path.split("?")[0];
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
+  window.history.replaceState(null, "", "/");
 });
 
 test("shows nothing private while still asking who is logged in", () => {
@@ -51,6 +58,35 @@ test("sends a signed-out visitor to the log-in page", () => {
 
   expect(screen.getByText("Secret page")).not.toBeVisible();
   expect(mocks.replace).toHaveBeenCalledWith("/login");
+});
+
+test("remembers the page a signed-out visitor wanted", () => {
+  mocks.auth = { state: "signedOut" };
+  openAddress("/?pay=sam%40example.com&amount=5");
+
+  renderPage();
+
+  expect(mocks.replace).toHaveBeenCalledWith(
+    "/login?next=%2F%3Fpay%3Dsam%2540example.com%26amount%3D5",
+  );
+});
+
+test("after logging in, goes back to the remembered page", () => {
+  mocks.auth = SIGNED_IN;
+  openAddress("/login?next=%2F%3Fpay%3Dsam%2540example.com%26amount%3D5");
+
+  renderPage();
+
+  expect(mocks.replace).toHaveBeenCalledWith("/?pay=sam%40example.com&amount=5");
+});
+
+test("does not follow a remembered address that leaves the app", () => {
+  mocks.auth = SIGNED_IN;
+  openAddress("/login?next=%2F%2Fevil.example");
+
+  renderPage();
+
+  expect(mocks.replace).toHaveBeenCalledWith("/");
 });
 
 test("lets a signed-out visitor see the log-in page", () => {
