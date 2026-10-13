@@ -8,6 +8,7 @@ from app.errors import register_error_handlers
 from app.routers import (
     auth,
     bank,
+    bills,
     expenses,
     health,
     household,
@@ -47,3 +48,4 @@ app.include_router(recurring.router)
 app.include_router(bank.router)
 app.include_router(wallet.router)
 app.include_router(money_requests.router)
+app.include_router(bills.router)

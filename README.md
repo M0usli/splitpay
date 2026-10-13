@@ -69,6 +69,9 @@ Added in version 3 (in progress):
 - **Request money.** Ask another user for an amount. They see it on their
   Wallet page with Pay and Decline buttons; the person who asked can cancel
   it while it is waiting.
+- **Pay bills.** Save a company (electricity, internet, mobile; all made
+  up) with your account number, pay it from the wallet, and get a receipt
+  with a reference number for every payment.
 - **Get paid with a QR code.** "My code" on the Wallet page shows a QR code,
   for any amount or a fixed one. Someone scans it with their phone camera and
   lands on the send screen filled in, ready to confirm. Scanning from a phone
@@ -229,6 +232,12 @@ with pretend transactions. The app cannot be pointed at real accounts.
 | POST | `/wallet/requests/{id}/pay` | Pay a request from the wallet (only the person asked) |
 | POST | `/wallet/requests/{id}/decline` | Say no to a request (only the person asked) |
 | POST | `/wallet/requests/{id}/cancel` | Take a request back (only the person who asked) |
+| GET | `/bills/billers` | The made-up companies a bill can be paid to |
+| GET | `/bills/saved` | The user's saved billers |
+| POST | `/bills/saved` | Save a company with the user's account number there |
+| DELETE | `/bills/saved/{id}` | Remove a saved biller; receipts are kept |
+| POST | `/bills/pay` | Pay a bill from the wallet and get its receipt |
+| GET | `/bills/payments` | The user's bill receipts, newest first |
 
 Every `/receipts`, `/expenses` and `/stats` endpoint needs a login and works
 only on the logged-in user's own rows.
@@ -307,6 +316,7 @@ receipt-tracker/
 │   │   ├── splitting.py    the arithmetic for splitting shared expenses
 │   │   ├── bank/           the bank-data interface and the Plaid sandbox client
 │   │   ├── wallet.py       the ledger: moving pretend money between wallets
+│   │   ├── billers.py      the made-up companies a bill can be paid to
 │   │   ├── routers/        the HTTP endpoints
 │   │   ├── schemas/        Pydantic request and response shapes
 │   │   ├── models/         SQLAlchemy database tables
@@ -317,7 +327,7 @@ receipt-tracker/
 │   └── tests/
 ├── frontend/
 │   └── src/
-│       ├── app/            pages (Wallet, Upload, Review, Expenses, Dashboard, Split bill, Recurring, Bank, Log in, Sign up)
+│       ├── app/            pages (Wallet, Bills, Upload, Review, Expenses, Dashboard, Split bill, Recurring, Bank, Log in, Sign up)
 │       ├── components/     React components and their tests
 │       └── lib/            API client, generated types, formatting helpers
 ├── eval/                   test receipts, labels and results
@@ -382,6 +392,11 @@ receipt-tracker/
   ends as paid, declined or cancelled. The backend locks the request's row
   while it changes, so Pay tapped on two devices at the same moment moves
   the money once, and a finished request cannot change again.
+- **A receipt is a copy, not a pointer.** A bill payment stores the
+  company and account number itself instead of pointing to the saved biller,
+  so the receipt still says what was paid after the biller is removed. The
+  money goes to the "outside world" wallet, the opposite of a top-up, so the
+  ledger still adds up to zero.
 - **A QR code is only a link.** The code holds an address such as
   `/?pay=sam@example.com&amount=12.50`, nothing secret. Opening it never
   moves money: it fills in the send screen and the payer must still confirm.

@@ -2,6 +2,7 @@
 
 from app.models.bank import BankConnection, BankTransaction
 from app.models.base import Base
+from app.models.bill import BillPayment, SavedBiller
 from app.models.expense import Expense, ExpenseShare
 from app.models.household import Household, Settlement
 from app.models.receipt import Receipt
@@ -13,12 +14,14 @@ __all__ = [
     "BankConnection",
     "BankTransaction",
     "Base",
+    "BillPayment",
     "Expense",
     "ExpenseShare",
     "Household",
     "MoneyRequest",
     "Receipt",
     "RecurringExpense",
+    "SavedBiller",
     "Settlement",
     "User",
     "UserSession",

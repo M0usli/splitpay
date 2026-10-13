@@ -4,6 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import AmountPad from "@/components/AmountPad";
+import StepHeader from "@/components/StepHeader";
 import { useAuth } from "@/components/AuthProvider";
 import {
   cancelMoneyRequest,
@@ -141,6 +142,10 @@ function describe(transaction: WalletTransaction): string {
   if (transaction.kind === "top_up") {
     return "Added money";
   }
+  if (transaction.kind === "bill") {
+    // The company's name is the note, shown on the line below.
+    return "Bill payment";
+  }
   const who = transaction.counterparty === null ? "someone" : shortName(transaction.counterparty);
   if (transaction.kind === "settlement") {
     return transaction.direction === "out" ? `Paid ${who} for split bill` : `${who} paid you for split bill`;
@@ -163,23 +168,6 @@ function Avatar({ email, size = "h-11 w-11 text-base" }: { email: string; size?:
     >
       {email[0]}
     </span>
-  );
-}
-
-/** The heading of a step, with a Back button. */
-function StepHeader({ title, onBack }: { title: string; onBack: () => void }) {
-  return (
-    <div className="mb-4 flex items-center gap-3">
-      <button
-        type="button"
-        onClick={onBack}
-        aria-label="Back"
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 text-lg hover:bg-zinc-200"
-      >
-        ←
-      </button>
-      <h2 className="text-lg font-semibold">{title}</h2>
-    </div>
   );
 }
 
@@ -782,7 +770,8 @@ export default function Wallet({ payLink = null }: { payLink?: PayLink | null })
                     aria-hidden
                     className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xl text-zinc-600"
                   >
-                    +
+                    {/* No other person: money added from outside, or a bill paid to a company. */}
+                    {transaction.kind === "bill" ? "≡" : "+"}
                   </span>
                 ) : (
                   <Avatar email={transaction.counterparty} />

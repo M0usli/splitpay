@@ -224,6 +224,18 @@ test("split-bill payments are described as such in the history", async () => {
   expect(rows[1]).toHaveTextContent("jo paid you for split bill");
 });
 
+test("a bill payment is described with the company's name", async () => {
+  vi.mocked(listWalletTransactions).mockResolvedValue([
+    { ...SENT, id: 8, kind: "bill", counterparty: null, note: "Northern Hydro" },
+  ]);
+  render(<Wallet />);
+
+  const rows = within(await screen.findByRole("region", { name: "History" })).getAllByRole("listitem");
+  expect(rows[0]).toHaveTextContent("Bill payment");
+  expect(rows[0]).toHaveTextContent("Northern Hydro");
+  expect(rows[0]).toHaveTextContent("−$30.00");
+});
+
 // --- requesting money ---
 
 /** Alex asked Sam for 12.00. */

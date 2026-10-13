@@ -34,6 +34,9 @@ export type Wallet = Schemas["WalletRead"];
 export type WalletTransaction = Schemas["TransactionRead"];
 export type TransferResult = Schemas["TransferResult"];
 export type MoneyRequest = Schemas["MoneyRequestRead"];
+export type Biller = Schemas["BillerRead"];
+export type SavedBiller = Schemas["SavedBillerRead"];
+export type BillPayment = Schemas["BillPaymentRead"];
 export type RecurringWrite = Schemas["RecurringWrite"];
 export type User = Schemas["UserRead"];
 export type Credentials = Schemas["Credentials"];
@@ -290,6 +293,48 @@ export function listWalletTransactions(): Promise<WalletTransaction[]> {
  */
 export function topUpWallet(amount: string, requestId: string): Promise<TransferResult> {
   return request("/wallet/top-up", jsonRequest("POST", { amount, idempotency_key: requestId }));
+}
+
+/** The (made-up) companies a bill can be paid to. */
+export function listBillers(): Promise<Biller[]> {
+  return request("/bills/billers");
+}
+
+/** The companies the user saved, each with the user's account number there. */
+export function listSavedBillers(): Promise<SavedBiller[]> {
+  return request("/bills/saved");
+}
+
+export function saveBiller(billerCode: string, accountNumber: string): Promise<SavedBiller> {
+  return request(
+    "/bills/saved",
+    jsonRequest("POST", { biller_code: billerCode, account_number: accountNumber }),
+  );
+}
+
+/** Forget a saved biller. Receipts of past payments are kept. */
+export function removeSavedBiller(id: number): Promise<void> {
+  return request(`/bills/saved/${id}`, { method: "DELETE" });
+}
+
+/**
+ * Pay a bill from the wallet and get its receipt. A repeat with the same
+ * `requestId` pays only once and returns the same receipt.
+ */
+export function payBill(
+  savedBillerId: number,
+  amount: string,
+  requestId: string,
+): Promise<BillPayment> {
+  return request(
+    "/bills/pay",
+    jsonRequest("POST", { saved_biller_id: savedBillerId, amount, idempotency_key: requestId }),
+  );
+}
+
+/** The user's bill receipts, newest first. */
+export function listBillPayments(): Promise<BillPayment[]> {
+  return request("/bills/payments");
 }
 
 /** Requests for money the user made or received, newest first. */

@@ -862,6 +862,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/bills/billers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Billers
+         * @description The companies that can be paid. All of them are made up.
+         */
+        get: operations["list_billers_bills_billers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bills/saved": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Saved Billers */
+        get: operations["list_saved_billers_bills_saved_get"];
+        put?: never;
+        /**
+         * Save Biller
+         * @description Remember a company and the user's account number there.
+         */
+        post: operations["save_biller_bills_saved_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bills/saved/{saved_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Saved Biller
+         * @description Forget a saved biller. Receipts of past payments are kept.
+         */
+        delete: operations["remove_saved_biller_bills_saved__saved_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bills/pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pay Bill
+         * @description Pay a bill from the wallet and write its receipt, together.
+         *
+         *     The money goes to the outside-world wallet, the opposite of a top-up:
+         *     it leaves the app, as it would when a real company is paid.
+         */
+        post: operations["pay_bill_bills_pay_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bills/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Payments
+         * @description The user's bill receipts, newest first.
+         */
+        get: operations["list_payments_bills_payments_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -956,6 +1060,52 @@ export interface components {
          * @enum {string}
          */
         BankTransactionStatus: "new" | "added" | "ignored";
+        /**
+         * BillPay
+         * @description Request body for paying a bill to one of the user's saved billers.
+         */
+        BillPay: {
+            /** Saved Biller Id */
+            saved_biller_id: number;
+            /** Amount */
+            amount: number | string;
+            /** Idempotency Key */
+            idempotency_key: string;
+        };
+        /**
+         * BillPaymentRead
+         * @description The receipt for one bill payment.
+         */
+        BillPaymentRead: {
+            /** Id */
+            id: number;
+            /** Reference */
+            reference: string;
+            biller: components["schemas"]["BillerRead"];
+            /** Account Number */
+            account_number: string;
+            /** Amount */
+            amount: string;
+            /** Currency */
+            currency: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * BillerRead
+         * @description A company that can be paid.
+         */
+        BillerRead: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+        };
         /** Body_upload_receipt_receipts_post */
         Body_upload_receipt_receipts_post: {
             /** File */
@@ -1418,6 +1568,21 @@ export interface components {
             /** Shares */
             shares?: components["schemas"]["Share-Input"][] | null;
         };
+        /** SavedBillerCreate */
+        SavedBillerCreate: {
+            /** Biller Code */
+            biller_code: string;
+            /** Account Number */
+            account_number: string;
+        };
+        /** SavedBillerRead */
+        SavedBillerRead: {
+            /** Id */
+            id: number;
+            biller: components["schemas"]["BillerRead"];
+            /** Account Number */
+            account_number: string;
+        };
         /**
          * SendRequest
          * @description Request body for sending money to another user.
@@ -1664,7 +1829,7 @@ export interface components {
          * @description Why money moved between two wallets.
          * @enum {string}
          */
-        TransferKind: "top_up" | "send" | "settlement" | "request";
+        TransferKind: "top_up" | "send" | "settlement" | "request" | "bill";
         /**
          * TransferResult
          * @description What a top-up or a send returns: the new line of history and the new balance.
@@ -3361,6 +3526,200 @@ export interface operations {
             };
         };
     };
+    list_billers_bills_billers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillerRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_saved_billers_bills_saved_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedBillerRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_biller_bills_saved_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedBillerCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedBillerRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_saved_biller_bills_saved__saved_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                saved_id: number;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pay_bill_bills_pay_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BillPay"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillPaymentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_payments_bills_payments_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillPaymentRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
 }
 type FlattenedDeepRequired<T> = {
     [K in keyof T]-?: FlattenedDeepRequired<T[K] extends unknown[] | undefined | null ? Extract<T[K], unknown[]>[number] : T[K]>;
@@ -3377,4 +3736,4 @@ export const moneyRequestReadDirectionValues: ReadonlyArray<FlattenedDeepRequire
 export const moneyRequestStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MoneyRequestStatus"]> = ["pending", "paid", "declined", "cancelled"];
 export const receiptStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ReceiptStatus"]> = ["pending", "extracted", "failed"];
 export const transactionReadDirectionValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TransactionRead"]["direction"]> = ["in", "out"];
-export const transferKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TransferKind"]> = ["top_up", "send", "settlement", "request"];
+export const transferKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TransferKind"]> = ["top_up", "send", "settlement", "request", "bill"];
