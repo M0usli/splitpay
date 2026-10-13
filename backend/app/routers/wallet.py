@@ -7,6 +7,7 @@ from app.database import DbSession
 from app.enums import TransferKind
 from app.identity import is_verified
 from app.models import User, Wallet, WalletTransfer
+from app.notifications import money, notify
 from app.pin import PayingUser
 from app.schemas.wallet import (
     LimitsRead,
@@ -17,7 +18,7 @@ from app.schemas.wallet import (
     WalletRead,
 )
 from app.spending import daily_limit_for, remaining_today, spend
-from app.wallet import get_balance, get_or_create_wallet, move_money
+from app.wallet import find_transfer, get_balance, get_or_create_wallet, move_money
 
 router = APIRouter(prefix="/wallet", tags=["wallet"])
 
@@ -120,6 +121,8 @@ def send_money(payload: SendRequest, db: DbSession, user: PayingUser) -> Transfe
 
     wallet = get_or_create_wallet(db, user)
     recipient_wallet = get_or_create_wallet(db, recipient)
+    # A repeat of a request that already went through must not notify again.
+    is_repeat = find_transfer(db, payload.idempotency_key) is not None
     transfer = spend(
         db,
         user,
@@ -130,6 +133,9 @@ def send_money(payload: SendRequest, db: DbSession, user: PayingUser) -> Transfe
         note=payload.note.strip() or None if payload.note else None,
     )
     check_same_request(transfer, source=wallet, destination=recipient_wallet, amount=payload.amount)
+    if not is_repeat:
+        reason = f" For: {transfer.note}" if transfer.note else ""
+        notify(db, recipient.id, f"{user.email} sent you {money(transfer.amount)}.{reason}")
     db.commit()
     db.refresh(transfer)
     return TransferResult(

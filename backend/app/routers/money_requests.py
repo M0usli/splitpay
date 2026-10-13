@@ -8,6 +8,7 @@ from app.auth import CurrentUser
 from app.database import DbSession
 from app.enums import MoneyRequestStatus, TransferKind
 from app.models import MoneyRequest, User
+from app.notifications import money, notify
 from app.pin import PayingUser
 from app.schemas.wallet import MoneyRequestCreate, MoneyRequestPay, MoneyRequestRead
 from app.spending import spend
@@ -83,6 +84,7 @@ def create_request(
         note=(payload.note or "").strip() or None,
     )
     db.add(request)
+    notify(db, asked.id, f"{user.email} asked you for {money(payload.amount)}.")
     db.commit()
     db.refresh(request)
     return to_read(db, request, user)
@@ -124,6 +126,11 @@ def pay_request(
 
     request.wallet_transfer_id = transfer.id
     resolve(request, MoneyRequestStatus.PAID)
+    notify(
+        db,
+        request.from_user_id,
+        f"{user.email} paid your request for {money(request.amount)}.",
+    )
     db.commit()
     db.refresh(request)
     return to_read(db, request, user)
@@ -135,6 +142,11 @@ def decline_request(request_id: int, db: DbSession, user: CurrentUser) -> MoneyR
     request = get_pending_or_error(db, request_id, user=user, asked=True)
     require_pending(request)
     resolve(request, MoneyRequestStatus.DECLINED)
+    notify(
+        db,
+        request.from_user_id,
+        f"{user.email} declined your request for {money(request.amount)}.",
+    )
     db.commit()
     db.refresh(request)
     return to_read(db, request, user)
@@ -146,6 +158,11 @@ def cancel_request(request_id: int, db: DbSession, user: CurrentUser) -> MoneyRe
     request = get_pending_or_error(db, request_id, user=user, asked=False)
     require_pending(request)
     resolve(request, MoneyRequestStatus.CANCELLED)
+    notify(
+        db,
+        request.to_user_id,
+        f"{user.email} cancelled their request for {money(request.amount)}.",
+    )
     db.commit()
     db.refresh(request)
     return to_read(db, request, user)

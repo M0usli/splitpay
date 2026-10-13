@@ -14,6 +14,8 @@ vi.mock("@/components/AuthProvider", () => ({
   useAuth: () => ({ auth: mocks.auth, signOut: mocks.signOut }),
 }));
 vi.mock("@/lib/api", () => ({ logout: vi.fn() }));
+// The bell loads its own data and has its own tests.
+vi.mock("@/components/NotificationBell", () => ({ default: () => null }));
 
 const SIGNED_IN: AuthStatus = {
   state: "signedIn",
