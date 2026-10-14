@@ -16,6 +16,8 @@ import {
   type BankTransaction,
   type Category,
 } from "@/lib/api";
+import Avatar from "@/components/Avatar";
+import { categoryStyle } from "@/lib/categoryStyle";
 import { formatMoney } from "@/lib/format";
 import { openPlaidLink } from "@/lib/plaidLink";
 
@@ -26,11 +28,15 @@ type Status =
   | { state: "loaded"; data: BankData }
   | { state: "error"; message: string };
 
+// The same look as the Wallet page: rounded cards, green main buttons.
 const buttonClass =
-  "rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50";
+  "rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 " +
+  "disabled:bg-zinc-300";
 const smallButtonClass =
-  "rounded-md border border-zinc-300 px-2 py-1 text-sm hover:bg-zinc-50 disabled:opacity-50";
-const cardClass = "rounded-lg border border-zinc-200 bg-white p-5";
+  "rounded-xl border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 " +
+  "disabled:opacity-50";
+const cardClass = "rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm";
+const headingClass = "text-sm font-semibold text-zinc-700";
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Something went wrong";
@@ -122,7 +128,7 @@ export default function BankImport() {
   if (!bank.configured) {
     return (
       <section className={cardClass}>
-        <h2 className="text-lg font-semibold">The bank connection is not set up yet</h2>
+        <h2 className={headingClass}>The bank connection is not set up yet</h2>
         <p className="mt-2 text-sm text-zinc-600">
           This feature uses Plaid&apos;s sandbox: pretend banks with pretend transactions. To turn
           it on, add your free sandbox keys to the <code>.env</code> file as{" "}
@@ -133,25 +139,40 @@ export default function BankImport() {
     );
   }
 
+  const bankCount = bank.connections.length;
+
   return (
     <div className="space-y-6">
-      <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+      {/* The same green card as the Wallet: what is waiting for a decision. */}
+      <section
+        aria-label="Waiting for review"
+        className="rounded-3xl bg-gradient-to-br from-emerald-600 to-teal-700 p-6 text-white shadow-lg"
+      >
+        <p className="text-sm font-medium text-emerald-100">Waiting for review</p>
+        <p className="mt-1 text-4xl font-semibold tracking-tight">{transactions.length}</p>
+        <p className="mt-1 text-sm text-emerald-100">
+          {transactions.length === 1 ? "transaction" : "transactions"} from {bankCount}{" "}
+          connected {bankCount === 1 ? "bank" : "banks"}
+        </p>
+      </section>
+
+      <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
         Sandbox only. These are pretend banks and pretend transactions, never your real accounts.
         In Plaid&apos;s window, sign in with <code>user_good</code> and <code>pass_good</code>.
       </p>
       {notice !== null && (
-        <p role="status" className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
-          {notice}
+        <p role="status" className="rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
+          ✓ {notice}
         </p>
       )}
       {actionError !== null && (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
           {actionError}
         </p>
       )}
 
       <section className={cardClass} aria-labelledby="banks-heading">
-        <h2 id="banks-heading" className="text-lg font-semibold">
+        <h2 id="banks-heading" className={headingClass}>
           Connected banks
         </h2>
         {bank.connections.length === 0 ? (
@@ -159,8 +180,9 @@ export default function BankImport() {
         ) : (
           <ul className="mt-3 divide-y divide-zinc-100 text-sm">
             {bank.connections.map((connection) => (
-              <li key={connection.id} className="flex items-center justify-between gap-3 py-2">
-                <span>{connection.institution_name}</span>
+              <li key={connection.id} className="flex items-center gap-3 py-3">
+                <Avatar email={connection.institution_name} size="h-9 w-9 text-sm" />
+                <span className="min-w-0 flex-1 truncate font-medium">{connection.institution_name}</span>
                 <button
                   type="button"
                   disabled={isBusy}
@@ -180,11 +202,17 @@ export default function BankImport() {
           </ul>
         )}
         <div className="mt-4 flex flex-wrap gap-2">
-          <button type="button" disabled={isBusy} onClick={() => run(handleConnect)} className={buttonClass}>
+          {/* The main action until a bank is connected; after that, importing is. */}
+          <button
+            type="button"
+            disabled={isBusy}
+            onClick={() => run(handleConnect)}
+            className={bankCount === 0 ? buttonClass : smallButtonClass}
+          >
             Connect a sandbox bank
           </button>
           {bank.connections.length > 0 && (
-            <button type="button" disabled={isBusy} onClick={() => run(handleSync)} className={smallButtonClass}>
+            <button type="button" disabled={isBusy} onClick={() => run(handleSync)} className={buttonClass}>
               Import transactions
             </button>
           )}
@@ -192,7 +220,7 @@ export default function BankImport() {
       </section>
 
       <section className={cardClass} aria-labelledby="review-heading">
-        <h2 id="review-heading" className="text-lg font-semibold">
+        <h2 id="review-heading" className={headingClass}>
           To review ({transactions.length})
         </h2>
         {transactions.length === 0 ? (
@@ -202,24 +230,30 @@ export default function BankImport() {
         ) : (
           <ul className="mt-3 divide-y divide-zinc-100">
             {transactions.map((transaction) => (
-              <li key={transaction.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                <div className="min-w-0">
-                  <p className="font-medium">
-                    {transaction.name}{" "}
-                    <span className="font-normal text-zinc-600">
-                      {formatMoney(transaction.amount, transaction.currency)}
-                    </span>
-                  </p>
-                  <p className="text-sm text-zinc-500">{transaction.date}</p>
+              <li key={transaction.id} className="flex flex-wrap items-center gap-3 py-3">
+                {/* The colour follows the category currently chosen. */}
+                <span
+                  aria-hidden
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-semibold ${categoryStyle(chosen[transaction.id] ?? transaction.category)}`}
+                >
+                  {(chosen[transaction.id] ?? transaction.category)[0]}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{transaction.name}</p>
+                  <p className="text-xs text-zinc-500">{transaction.date}</p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                <p className="whitespace-nowrap text-sm font-semibold tabular-nums">
+                  {formatMoney(transaction.amount, transaction.currency)}
+                </p>
+                {/* On a phone the choices get their own row under the transaction. */}
+                <div className="flex w-full flex-wrap items-center gap-2 pl-[3.25rem]">
                   <select
                     aria-label={`Category for ${transaction.name}`}
                     value={chosen[transaction.id] ?? transaction.category}
                     onChange={(event) =>
                       setChosen({ ...chosen, [transaction.id]: event.target.value as Category })
                     }
-                    className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm"
+                    className="rounded-xl border border-zinc-300 bg-white px-3 py-1.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   >
                     {CATEGORIES.map((category) => (
                       <option key={category} value={category}>
@@ -240,7 +274,7 @@ export default function BankImport() {
                         return `${transaction.name} was added to your expenses.`;
                       })
                     }
-                    className={smallButtonClass}
+                    className={buttonClass}
                   >
                     Add
                   </button>
