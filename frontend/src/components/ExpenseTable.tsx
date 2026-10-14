@@ -1,7 +1,7 @@
 import Link from "next/link";
 
+import CategoryBadge from "@/components/CategoryBadge";
 import type { Expense } from "@/lib/api";
-import { categoryStyle } from "@/lib/categoryStyle";
 import { formatMoney } from "@/lib/format";
 
 type ExpenseTableProps = {
@@ -23,12 +23,7 @@ export default function ExpenseTable({ expenses, deletingId, onDelete }: Expense
       {expenses.map((expense) => (
         <li key={expense.id} className="flex flex-wrap items-start gap-3 py-3">
           {/* The category's first letter in its colour. */}
-          <span
-            aria-hidden
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-semibold ${categoryStyle(expense.category)}`}
-          >
-            {expense.category[0]}
-          </span>
+          <CategoryBadge category={expense.category} />
 
           <div className="min-w-0 flex-1">
             <p className="text-sm">

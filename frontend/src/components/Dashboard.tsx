@@ -17,10 +17,8 @@ type Status =
 /** A titled white box. `children` is whatever is placed between its tags. */
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-lg border border-zinc-200 bg-white p-5">
-      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-zinc-500">
-        {title}
-      </h2>
+    <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <h2 className="mb-4 text-sm font-semibold text-zinc-700">{title}</h2>
       {children}
     </section>
   );
@@ -38,6 +36,18 @@ function describeChange(summary: StatsSummary): string {
   const amount = formatMoney((Math.abs(differenceCents) / 100).toFixed(2), summary.currency);
   return `${amount} ${differenceCents > 0 ? "more" : "less"} than ${formatMonth(previous.month)}`;
 }
+
+/** The month `step` months after "YYYY-MM": shiftMonth("2026-01", -1) is "2025-12". */
+export function shiftMonth(month: string, step: number): string {
+  const [year, number] = month.split("-").map(Number);
+  // Months counted from year 0 make carrying over the year simple arithmetic.
+  const total = year * 12 + (number - 1) + step;
+  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, "0")}`;
+}
+
+const stepButtonClass =
+  "flex h-10 w-10 items-center justify-center rounded-full border border-zinc-300 bg-white " +
+  "text-lg hover:bg-zinc-100 disabled:opacity-40";
 
 export default function Dashboard() {
   // null means "the current month". It is only worked out in the browser,
@@ -72,7 +82,7 @@ export default function Dashboard() {
 
   if (status.state === "error") {
     return (
-      <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+      <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
         {status.message}
       </p>
     );
@@ -82,32 +92,53 @@ export default function Dashboard() {
   const monthName = formatMonth(summary.month);
   const hasSpendingThisMonth = summary.expense_count > 0;
   const hasAnySpending = summary.top_merchants.length > 0;
+  // Worked out here, in the browser: this part only shows after the data has loaded.
+  const thisMonth = currentMonth();
+  const isThisMonth = summary.month === thisMonth;
 
   return (
     <div className="space-y-6">
-      <div>
-        <label htmlFor="dashboard-month" className="block text-sm font-medium text-zinc-700">
-          Month
-        </label>
-        <input
-          id="dashboard-month"
-          type="month"
-          value={summary.month}
-          // Clearing the input goes back to the current month.
-          onChange={(event) => setSelectedMonth(event.target.value || null)}
-          className="mt-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
-        />
+      {/* Arrows step one month at a time, so no date has to be typed. */}
+      <div role="group" aria-label="Month" className="flex items-center gap-3">
+        <button
+          type="button"
+          aria-label="Previous month"
+          onClick={() => setSelectedMonth(shiftMonth(summary.month, -1))}
+          className={stepButtonClass}
+        >
+          ‹
+        </button>
+        <p className="min-w-36 text-center font-semibold">{monthName}</p>
+        <button
+          type="button"
+          aria-label="Next month"
+          disabled={isThisMonth}
+          onClick={() => setSelectedMonth(shiftMonth(summary.month, 1))}
+          className={stepButtonClass}
+        >
+          ›
+        </button>
+        {!isThisMonth && (
+          <button
+            type="button"
+            onClick={() => setSelectedMonth(null)}
+            className="rounded-full border border-zinc-300 bg-white px-3.5 py-1.5 text-sm font-medium hover:border-emerald-400"
+          >
+            This month
+          </button>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <section className="rounded-lg border border-zinc-200 bg-white p-5 sm:col-span-2">
-          <h2 className="text-sm text-zinc-600">Spent in {monthName}</h2>
+        {/* The same green card as the Wallet: the one number this page is about. */}
+        <section className="rounded-3xl bg-gradient-to-br from-emerald-600 to-teal-700 p-6 text-white shadow-lg sm:col-span-2">
+          <h2 className="text-sm font-medium text-emerald-100">Spent in {monthName}</h2>
           <p className="mt-1 text-5xl font-semibold tracking-tight">
             {formatMoney(summary.month_total, summary.currency)}
           </p>
-          <p className="mt-2 text-sm text-zinc-500">{describeChange(summary)}</p>
+          <p className="mt-2 text-sm text-emerald-100">{describeChange(summary)}</p>
         </section>
-        <section className="rounded-lg border border-zinc-200 bg-white p-5">
+        <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
           <h2 className="text-sm text-zinc-600">Expenses in {monthName}</h2>
           <p className="mt-1 text-3xl font-semibold tracking-tight">{summary.expense_count}</p>
           <Link
