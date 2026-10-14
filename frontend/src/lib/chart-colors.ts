@@ -19,8 +19,8 @@ export const CATEGORY_COLORS: Record<Category, string> = {
   Other: "#898781",
 };
 
-/** The single colour for charts that show one series, such as monthly totals. */
-export const SERIES_COLOR = "#2a78d6";
+/** The single colour for charts that show one series, such as monthly totals: the app's green. */
+export const SERIES_COLOR = "#059669";
 
 /** Quiet greys for the parts of a chart that are not data. */
 export const CHART_GRID = "#e4e4e7";

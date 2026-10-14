@@ -15,7 +15,7 @@ import {
   type Recurring,
   type RecurringWrite,
 } from "@/lib/api";
-import { categoryStyle } from "@/lib/categoryStyle";
+import CategoryBadge from "@/components/CategoryBadge";
 import { formatMoney, sumAmounts } from "@/lib/format";
 import { buildShares, sharingFromExpense, type SharingValues } from "@/lib/split";
 
@@ -213,12 +213,7 @@ export default function RecurringCosts() {
           <ul className="mt-3 divide-y divide-zinc-100">
             {status.costs.map((cost) => (
               <li key={cost.id} className="flex flex-wrap items-center gap-3 py-3">
-                <span
-                  aria-hidden
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-semibold ${categoryStyle(cost.category)}`}
-                >
-                  {cost.category[0]}
-                </span>
+                <CategoryBadge category={cost.category} />
                 <div className={`min-w-0 flex-1 ${cost.is_active ? "" : "opacity-60"}`}>
                   <p className="font-medium">
                     {cost.merchant}{" "}

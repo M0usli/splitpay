@@ -17,7 +17,7 @@ import {
   type Category,
 } from "@/lib/api";
 import Avatar from "@/components/Avatar";
-import { categoryStyle } from "@/lib/categoryStyle";
+import CategoryBadge from "@/components/CategoryBadge";
 import { formatMoney } from "@/lib/format";
 import { openPlaidLink } from "@/lib/plaidLink";
 
@@ -232,12 +232,7 @@ export default function BankImport() {
             {transactions.map((transaction) => (
               <li key={transaction.id} className="flex flex-wrap items-center gap-3 py-3">
                 {/* The colour follows the category currently chosen. */}
-                <span
-                  aria-hidden
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-semibold ${categoryStyle(chosen[transaction.id] ?? transaction.category)}`}
-                >
-                  {(chosen[transaction.id] ?? transaction.category)[0]}
-                </span>
+                <CategoryBadge category={chosen[transaction.id] ?? transaction.category} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{transaction.name}</p>
                   <p className="text-xs text-zinc-500">{transaction.date}</p>
