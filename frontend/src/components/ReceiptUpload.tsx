@@ -9,6 +9,13 @@ import { uploadReceipt } from "@/lib/api";
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "application/pdf"];
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
+// What happens after a receipt is chosen, shown under the upload box.
+const STEPS = [
+  { title: "Read", text: "The photo is cleaned up and the text is read." },
+  { title: "Check", text: "You see the store, date, total and items, and fix anything." },
+  { title: "Save or split", text: "Save it as an expense, or split it with your household." },
+];
+
 type Status =
   | { state: "idle" }
   | { state: "uploading"; fileName: string }
@@ -93,13 +100,13 @@ export default function ReceiptUpload() {
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
         className={
-          "flex min-h-56 flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors " +
-          "focus-within:border-zinc-900 focus-within:ring-2 focus-within:ring-zinc-300 " +
+          "flex min-h-56 flex-col items-center justify-center rounded-3xl border-2 border-dashed px-6 py-10 text-center shadow-sm transition-colors " +
+          "focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-200 " +
           (isUploading
-            ? "cursor-wait border-zinc-300 bg-zinc-100"
+            ? "cursor-wait border-emerald-300 bg-emerald-50"
             : isDragging
-              ? "cursor-copy border-zinc-900 bg-zinc-100"
-              : "cursor-pointer border-zinc-300 bg-white hover:border-zinc-500")
+              ? "cursor-copy border-emerald-600 bg-emerald-50"
+              : "cursor-pointer border-zinc-300 bg-white hover:border-emerald-400")
         }
       >
         <input
@@ -113,7 +120,7 @@ export default function ReceiptUpload() {
           <>
             <span
               aria-hidden
-              className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-900"
+              className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-200 border-t-emerald-600"
             />
             <p role="status" className="mt-4 font-medium">
               Reading your receipt…
@@ -122,6 +129,12 @@ export default function ReceiptUpload() {
           </>
         ) : (
           <>
+            <span
+              aria-hidden
+              className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-2xl text-emerald-700"
+            >
+              ⇪
+            </span>
             <p className="text-lg font-medium">
               {isDragging ? (
                 "Drop the receipt here"
@@ -145,7 +158,7 @@ export default function ReceiptUpload() {
           usual file picker, so the button is only shown on small screens. */}
       <label
         className={
-          "mt-3 flex items-center justify-center rounded-md bg-zinc-900 px-4 py-3 text-sm font-medium text-white md:hidden " +
+          "mt-3 flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-3.5 text-base font-semibold text-white hover:bg-emerald-500 md:hidden " +
           (isUploading ? "cursor-wait opacity-50" : "cursor-pointer")
         }
       >
@@ -161,7 +174,7 @@ export default function ReceiptUpload() {
       </label>
 
       {status.state === "error" && (
-        <p role="alert" className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
           {status.message}
           {status.receiptId !== undefined && (
             <>
@@ -173,6 +186,26 @@ export default function ReceiptUpload() {
           )}
         </p>
       )}
+
+      <section aria-label="What happens next" className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <h2 className="text-sm font-semibold text-zinc-700">What happens next</h2>
+        <ol className="mt-3 space-y-3">
+          {STEPS.map((step, index) => (
+            <li key={step.title} className="flex gap-3">
+              <span
+                aria-hidden
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white"
+              >
+                {index + 1}
+              </span>
+              <p className="text-sm">
+                <span className="font-medium">{step.title}.</span>{" "}
+                <span className="text-zinc-600">{step.text}</span>
+              </p>
+            </li>
+          ))}
+        </ol>
+      </section>
     </div>
   );
 }
