@@ -1,4 +1,3 @@
-import datetime
 import logging
 from pathlib import Path
 
@@ -20,6 +19,7 @@ from app.ocr.pipeline import extract_text
 from app.ocr.preprocessing import preprocess_image
 from app.rate_limit import limiter, too_many
 from app.schemas.receipt import ReceiptRead
+from app.spending import start_of_today
 from app.storage import detect_file_extension, save_upload
 
 router = APIRouter(prefix="/receipts", tags=["receipts"])
@@ -54,14 +54,11 @@ def upload_receipt(
     "failed" and a message explaining why.
     """
     # Each upload is a paid AI call, so one user may only do so many a day.
-    midnight = datetime.datetime.now(datetime.UTC).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
     uploaded_today = db.scalar(
         select(func.count())
         .select_from(Receipt)
         .where(Receipt.user_id == user.id)
-        .where(Receipt.created_at >= midnight)
+        .where(Receipt.created_at >= start_of_today())
     )
     if uploaded_today >= settings.daily_scan_limit:
         raise HTTPException(

@@ -1,5 +1,6 @@
 import csv
 import io
+from collections.abc import Iterable
 from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, Response, status
@@ -12,8 +13,14 @@ from app.dates import MonthQuery, month_range
 from app.enums import Category
 from app.extraction.schemas import DEFAULT_CURRENCY, ExtractedFields
 from app.models import Expense, ExpenseShare, Receipt, User
-from app.schemas.expense import ExpenseCreate, ExpenseRead, ExpenseUpdate, ExpenseWrite
-from app.splitting import ItemLine, split_by_items, split_equally
+from app.schemas.expense import (
+    ExpenseCreate,
+    ExpenseRead,
+    ExpenseUpdate,
+    ExpenseWrite,
+    SplitItem,
+)
+from app.splitting import ItemLine, PersonSplit, split_by_items, split_equally
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
@@ -79,7 +86,10 @@ def work_out_shares(db: Session, user: User, payload: ExpenseWrite) -> dict[int,
     )
 
     if payload.split_items is not None:
-        return shares_from_items(payload, member_ids, user.id)
+        people = split_items_or_422(
+            payload.split_items, member_ids, payload.tax or Decimal("0"), payload.total, user.id
+        )
+        return {person: split.amount for person, split in people.items()}
 
     if payload.shares is None:
         # No parts given: split equally among everyone. The payer comes first,
@@ -96,13 +106,13 @@ def work_out_shares(db: Session, user: User, payload: ExpenseWrite) -> dict[int,
     return parts
 
 
-def shares_from_items(
-    payload: ExpenseWrite, member_ids: list[int], payer_id: int
-) -> dict[int, Decimal]:
-    """Each person's part of an expense that is split item by item."""
+def split_items_or_422(
+    items: list[SplitItem], member_ids: Iterable[int], tax: Decimal, total: Decimal, payer_id: int
+) -> dict[int, PersonSplit]:
+    """Split a receipt item by item, or answer 422 if it cannot be split."""
     lines = [
         ItemLine(price=item.price, is_taxable=item.is_taxable, shared_by=item.shared_by)
-        for item in payload.split_items or []
+        for item in items
     ]
     if any(not set(line.shared_by) <= set(member_ids) for line in lines):
         raise HTTPException(
@@ -110,10 +120,9 @@ def shares_from_items(
             detail="Items can only be shared with members of your household",
         )
     try:
-        people = split_by_items(lines, payload.tax or Decimal("0"), payload.total, payer_id)
+        return split_by_items(lines, tax, total, payer_id)
     except ValueError as error:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
-    return {person: split.amount for person, split in people.items()}
 
 
 def split_items_to_store(payload: ExpenseWrite) -> list[dict] | None:

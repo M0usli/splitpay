@@ -13,6 +13,7 @@ from app.extraction.schemas import DEFAULT_CURRENCY
 from app.models import Expense, Household, Settlement, User
 from app.notifications import money, notify
 from app.pin import PayingUser
+from app.routers.expenses import split_items_or_422
 from app.schemas.expense import ExpenseRead
 from app.schemas.household import (
     BalanceRead,
@@ -31,7 +32,7 @@ from app.schemas.household import (
     WalletPayment,
 )
 from app.spending import spend
-from app.splitting import ItemLine, net_balances, plan_payments, split_by_items
+from app.splitting import net_balances, plan_payments
 from app.wallet import get_or_create_wallet
 
 router = APIRouter(prefix="/household", tags=["household"])
@@ -205,20 +206,8 @@ def preview_item_split(
     """
     household = get_household_or_404(db, user)
     members = {member.id: member for member in get_members(db, household.id)}
-    lines = [
-        ItemLine(price=item.price, is_taxable=item.is_taxable, shared_by=item.shared_by)
-        for item in payload.split_items
-    ]
-    if any(not set(line.shared_by) <= set(members) for line in lines):
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="Items can only be shared with members of your household",
-        )
     tax = payload.tax or Decimal("0")
-    try:
-        people = split_by_items(lines, tax, payload.total, user.id)
-    except ValueError as error:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
+    people = split_items_or_422(payload.split_items, members, tax, payload.total, user.id)
 
     return SplitPreviewRead(
         people=[
@@ -231,7 +220,7 @@ def preview_item_split(
             )
             for person, split in sorted(people.items())
         ],
-        difference=payload.total - sum(line.price for line in lines) - tax,
+        difference=payload.total - sum(item.price for item in payload.split_items) - tax,
     )
 
 

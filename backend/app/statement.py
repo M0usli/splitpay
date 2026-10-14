@@ -13,6 +13,7 @@ from decimal import Decimal
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.dates import month_range
 from app.enums import TransferKind
 from app.models import User, Wallet, WalletTransfer
 
@@ -30,10 +31,9 @@ DESCRIPTIONS = {
 
 def month_bounds(month: str) -> tuple[datetime.datetime, datetime.datetime]:
     """The first moment of "YYYY-MM" and of the month after it, in UTC."""
-    year, number = (int(part) for part in month.split("-"))
-    start = datetime.datetime(year, number, 1, tzinfo=datetime.UTC)
-    following = (year + 1, 1) if number == 12 else (year, number + 1)
-    return start, datetime.datetime(*following, 1, tzinfo=datetime.UTC)
+    start, end = month_range(month)
+    midnight = datetime.time(tzinfo=datetime.UTC)
+    return datetime.datetime.combine(start, midnight), datetime.datetime.combine(end, midnight)
 
 
 def safe_cell(text: str | None) -> str:
