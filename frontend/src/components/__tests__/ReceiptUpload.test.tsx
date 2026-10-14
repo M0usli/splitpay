@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, test, vi } from "vitest";
 
@@ -101,4 +101,15 @@ test("a photo from the camera is uploaded like any other file", async () => {
 
   expect(uploadReceipt).toHaveBeenCalledWith(photo);
   expect(push).toHaveBeenCalledWith("/receipts/7");
+});
+
+test("explains what happens after a receipt is chosen", () => {
+  render(<ReceiptUpload />);
+
+  const steps = within(screen.getByRole("region", { name: "What happens next" })).getAllByRole("listitem");
+  expect(steps.map((step) => step.textContent)).toEqual([
+    "1Read. The photo is cleaned up and the text is read.",
+    "2Check. You see the store, date, total and items, and fix anything.",
+    "3Save or split. Save it as an expense, or split it with your household.",
+  ]);
 });
