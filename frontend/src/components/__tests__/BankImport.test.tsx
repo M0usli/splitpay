@@ -168,3 +168,11 @@ test("a failure from the bank service is shown", async () => {
 
   expect(await screen.findByRole("alert")).toHaveTextContent("Could not reach the bank service.");
 });
+
+test("the green card counts what is waiting for review", async () => {
+  render(<BankImport />);
+
+  const card = within(await screen.findByRole("region", { name: "Waiting for review" }));
+  expect(card.getByText("1")).toBeInTheDocument();
+  expect(card.getByText(/transaction from 1 connected bank/)).toBeInTheDocument();
+});
