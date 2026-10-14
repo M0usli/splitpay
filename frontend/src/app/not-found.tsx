@@ -9,10 +9,10 @@ export default function NotFound() {
         There is nothing at this address. The link may be wrong, or the item may have been deleted.
       </p>
       <Link
-        href="/expenses"
-        className="mt-6 inline-block rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+        href="/"
+        className="mt-6 inline-block rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500"
       >
-        Go to your expenses
+        Go to your wallet
       </Link>
     </main>
   );

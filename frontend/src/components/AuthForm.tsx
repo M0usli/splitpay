@@ -14,8 +14,8 @@ type AuthFormProps = {
 const MIN_PASSWORD_LENGTH = 8;
 
 const inputClass =
-  "mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm " +
-  "focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500";
+  "mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm " +
+  "focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500";
 const labelClass = "block text-sm font-medium text-zinc-700";
 
 /** The email and password form used by both the log-in and the sign-up page. */
@@ -121,7 +121,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
       )}
 
       {error !== null && (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
         </p>
       )}
@@ -129,7 +129,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+        className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-base font-semibold text-white hover:bg-emerald-500 disabled:bg-zinc-300"
       >
         {isSubmitting ? "Please wait…" : isRegister ? "Create account" : "Log in"}
       </button>
