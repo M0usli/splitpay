@@ -218,6 +218,7 @@ with pretend transactions. The app cannot be pointed at real accounts.
 | GET, PUT, DELETE | `/expenses/{id}` | Read, change or delete one expense |
 | GET | `/expenses/export.csv` | Download the filtered expenses as CSV |
 | GET | `/stats/summary` | Totals for the dashboard |
+| GET | `/auth/signup` | Whether sign-up is open, by invitation, or closed |
 | POST | `/auth/register` | Create an account and log it in |
 | POST | `/auth/login` | Log in; the session token comes back in an HttpOnly cookie |
 | POST | `/auth/logout` | End the current session |
@@ -533,6 +534,25 @@ None of these is a blocker, and the work to become deploy-ready is tracked
 in [issue #22](https://github.com/M0usli/receipt-tracker/issues/22). Until
 then, [docs/DEMO.md](docs/DEMO.md) shows what the
 app does.
+
+## Getting ready to host
+
+Hosting is tracked in issue #22 and done in small steps. Done so far:
+
+- **Sign-up can be closed.** `SIGNUP_MODE` is `open` (anyone, the default
+  for local use), `invite` (only with `SIGNUP_INVITE_CODE`) or `closed`.
+  Closing it does not stop existing accounts from logging in.
+- **Log-in and sign-up are rate limited:** 10 tries per 10 minutes from one
+  address, then 429 Too Many Requests with a Retry-After header. The counts
+  live in the server's memory, which is enough for the single server a free
+  host gives.
+- **Scans are limited per user per day** (`DAILY_SCAN_LIMIT`, 20 by default),
+  and running the AI again on a receipt is limited to 10 an hour, because
+  each one is a paid AI call.
+
+Still to do: production builds, one site for the browser (the frontend
+forwarding `/api` to the backend), where uploaded files live, and the
+deployment guide.
 
 ## Known limitations
 

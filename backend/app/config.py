@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import Depends
 from pydantic_settings import BaseSettings
@@ -45,6 +45,15 @@ class Settings(BaseSettings):
     # come from the environment and are never hardcoded.
     plaid_client_id: str = ""
     plaid_secret: str = ""
+
+    # Who may create an account. "open": anyone (local development).
+    # "invite": only someone who has SIGNUP_INVITE_CODE. "closed": nobody.
+    # A public deployment must not be "open": every scan spends the owner's AI credit.
+    signup_mode: Literal["open", "invite", "closed"] = "open"
+    signup_invite_code: str = ""
+
+    # The most receipts one user may upload per day (each one is a paid AI call).
+    daily_scan_limit: int = 20
 
     # LLM extraction. The key comes from the environment and is never hardcoded.
     anthropic_api_key: str = ""

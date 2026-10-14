@@ -34,6 +34,10 @@ services:
       EVAL_DIR: /eval
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-5-5}
+      # Who may sign up, and how many scans a day (see .env.example).
+      SIGNUP_MODE: ${SIGNUP_MODE:-open}
+      SIGNUP_INVITE_CODE: ${SIGNUP_INVITE_CODE:-}
+      DAILY_SCAN_LIMIT: ${DAILY_SCAN_LIMIT:-20}
       # Optional: Plaid SANDBOX keys for the pretend-bank connection.
       PLAID_CLIENT_ID: ${PLAID_CLIENT_ID:-}
       PLAID_SECRET: ${PLAID_SECRET:-}

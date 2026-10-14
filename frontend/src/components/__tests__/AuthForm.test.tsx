@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, test, vi } from "vitest";
 
 import AuthForm from "@/components/AuthForm";
-import { ApiError, login, register, type User } from "@/lib/api";
+import { ApiError, getSignupInfo, login, register, type User } from "@/lib/api";
 
 // The form reports a successful login through useAuth().signIn, so the tests
 // swap in a fake signIn and check that it was called.
@@ -12,6 +12,7 @@ vi.mock("@/components/AuthProvider", () => ({ useAuth: () => ({ signIn }) }));
 // Keep the real ApiError class, replace only the functions that call the backend.
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
+  getSignupInfo: vi.fn(),
   login: vi.fn(),
   register: vi.fn(),
 }));
@@ -27,6 +28,7 @@ async function fillAndSubmit(buttonName: string, password = "correct horse batte
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(getSignupInfo).mockResolvedValue({ mode: "open" });
 });
 
 test("logging in sends the credentials and signs the user in", async () => {
@@ -82,4 +84,36 @@ test("each form links to the other one", () => {
 
   render(<AuthForm mode="register" />);
   expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
+});
+
+// --- when sign-up is limited ---
+
+test("closed sign-up shows a message instead of the form", async () => {
+  vi.mocked(getSignupInfo).mockResolvedValue({ mode: "closed" });
+  render(<AuthForm mode="register" />);
+
+  expect(await screen.findByText("Sign-up is closed.")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Email")).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
+});
+
+test("invite-only sign-up asks for the code and sends it", async () => {
+  vi.mocked(getSignupInfo).mockResolvedValue({ mode: "invite" });
+  vi.mocked(register).mockResolvedValue(USER);
+  render(<AuthForm mode="register" />);
+
+  await userEvent.type(await screen.findByLabelText("Invite code"), "FLAT-2026");
+  await fillAndSubmit("Create account");
+
+  expect(register).toHaveBeenCalledWith({
+    email: "sam@example.com",
+    password: "correct horse battery",
+    invite_code: "FLAT-2026",
+  });
+});
+
+test("the log-in page does not ask about sign-up", () => {
+  render(<AuthForm mode="login" />);
+
+  expect(getSignupInfo).not.toHaveBeenCalled();
 });
