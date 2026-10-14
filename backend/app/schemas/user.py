@@ -1,4 +1,5 @@
 import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
@@ -26,6 +27,14 @@ class UserCreate(Credentials):
     """Request body for registering. A new password must be at least 8 characters."""
 
     password: str = Field(min_length=8, max_length=128)
+    # Needed only while sign-up is by invitation.
+    invite_code: str | None = Field(default=None, max_length=100)
+
+
+class SignupInfo(BaseModel):
+    """Who may create an account right now, so the sign-up page can show the right form."""
+
+    mode: Literal["open", "invite", "closed"]
 
 
 class UserRead(BaseModel):

@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException, Response, status
+import secrets
+
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -13,15 +15,48 @@ from app.auth import (
 from app.config import SettingsDep
 from app.database import DbSession
 from app.models import User
+from app.rate_limit import limit_by_address
 from app.routers.two_step import WRONG_CODE, accept_code, get_two_step
-from app.schemas.user import Credentials, UserCreate, UserRead
+from app.schemas.user import Credentials, SignupInfo, UserCreate, UserRead
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+# At most 10 log-in or sign-up tries per 10 minutes from one address. Enough
+# for a person who mistypes; far too few to guess passwords or 2-step codes.
+login_limit = Depends(limit_by_address("login", limit=10, window_seconds=600))
+signup_limit = Depends(limit_by_address("signup", limit=10, window_seconds=600))
+
+
+@router.get("/signup", response_model=SignupInfo)
+def signup_info(settings: SettingsDep) -> SignupInfo:
+    """Whether sign-up is open, by invitation, or closed."""
+    return SignupInfo(mode=effective_signup_mode(settings))
+
+
+def effective_signup_mode(settings) -> str:
+    # "invite" with no code set would let nobody in by accident; say "closed" instead.
+    if settings.signup_mode == "invite" and not settings.signup_invite_code:
+        return "closed"
+    return settings.signup_mode
+
+
+@router.post(
+    "/register",
+    response_model=UserRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[signup_limit],
+)
 def register(payload: UserCreate, response: Response, db: DbSession, settings: SettingsDep) -> User:
-    """Create an account and log it in."""
+    """Create an account and log it in, if sign-up allows it."""
+    mode = effective_signup_mode(settings)
+    if mode == "closed":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Sign-up is closed.")
+    if mode == "invite":
+        # compare_digest takes the same time for a near miss as for a far one.
+        given = (payload.invite_code or "").strip()
+        if not secrets.compare_digest(given.encode(), settings.signup_invite_code.encode()):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, detail="That invite code is not right.")
     user = User(email=payload.email, password_hash=hash_password(payload.password))
     db.add(user)
     try:
@@ -37,7 +72,7 @@ def register(payload: UserCreate, response: Response, db: DbSession, settings: S
     return user
 
 
-@router.post("/login", response_model=UserRead)
+@router.post("/login", response_model=UserRead, dependencies=[login_limit])
 def login(payload: Credentials, response: Response, db: DbSession, settings: SettingsDep) -> User:
     user = db.scalar(select(User).where(User.email == payload.email))
     # One message for both mistakes, so the reply does not reveal which

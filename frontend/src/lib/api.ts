@@ -49,6 +49,8 @@ export type BillPayment = Schemas["BillPaymentRead"];
 export type RecurringWrite = Schemas["RecurringWrite"];
 export type User = Schemas["UserRead"];
 export type Credentials = Schemas["Credentials"];
+export type NewAccount = Schemas["UserCreate"];
+export type SignupInfo = Schemas["SignupInfo"];
 
 // Variables starting with NEXT_PUBLIC_ are made available to browser code.
 const CONFIGURED_API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -156,8 +158,13 @@ export function getHealth(): Promise<HealthResponse> {
 }
 
 /** Create an account. The backend also logs the new user in. */
-export function register(credentials: Credentials): Promise<User> {
-  return request("/auth/register", jsonRequest("POST", credentials));
+export function register(details: NewAccount): Promise<User> {
+  return request("/auth/register", jsonRequest("POST", details));
+}
+
+/** Whether anyone may sign up, only someone with an invite code, or nobody. */
+export function getSignupInfo(): Promise<SignupInfo> {
+  return request("/auth/signup");
 }
 
 export function login(credentials: Credentials): Promise<User> {

@@ -24,6 +24,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/signup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Signup Info
+         * @description Whether sign-up is open, by invitation, or closed.
+         */
+        get: operations["signup_info_auth_signup_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/register": {
         parameters: {
             query?: never;
@@ -35,7 +55,7 @@ export interface paths {
         put?: never;
         /**
          * Register
-         * @description Create an account and log it in.
+         * @description Create an account and log it in, if sign-up allows it.
          */
         post: operations["register_auth_register_post"];
         delete?: never;
@@ -2018,6 +2038,17 @@ export interface components {
             paid_by: components["schemas"]["MemberRead"];
         };
         /**
+         * SignupInfo
+         * @description Who may create an account right now, so the sign-up page can show the right form.
+         */
+        SignupInfo: {
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "open" | "invite" | "closed";
+        };
+        /**
          * SplitItem
          * @description One line of a receipt and the household members who share it.
          */
@@ -2187,6 +2218,8 @@ export interface components {
             password: string;
             /** Code */
             code?: string | null;
+            /** Invite Code */
+            invite_code?: string | null;
         };
         /**
          * UserRead
@@ -2263,6 +2296,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+        };
+    };
+    signup_info_auth_signup_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignupInfo"];
                 };
             };
         };
@@ -4471,5 +4524,6 @@ export const limitsReadLevelValues: ReadonlyArray<FlattenedDeepRequired<componen
 export const moneyRequestReadDirectionValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MoneyRequestRead"]["direction"]> = ["incoming", "outgoing"];
 export const moneyRequestStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MoneyRequestStatus"]> = ["pending", "paid", "declined", "cancelled"];
 export const receiptStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ReceiptStatus"]> = ["pending", "extracted", "failed"];
+export const signupInfoModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SignupInfo"]["mode"]> = ["open", "invite", "closed"];
 export const transactionReadDirectionValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TransactionRead"]["direction"]> = ["in", "out"];
 export const transferKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TransferKind"]> = ["top_up", "send", "settlement", "request", "bill"];

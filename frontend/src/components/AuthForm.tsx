@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { useAuth } from "@/components/AuthProvider";
-import { ApiError, login, register } from "@/lib/api";
+import { ApiError, getSignupInfo, login, register, type SignupInfo } from "@/lib/api";
 
 type AuthFormProps = {
   /** "login" for an existing account, "register" to create one. */
@@ -30,6 +30,27 @@ export default function AuthForm({ mode }: AuthFormProps) {
   const [code, setCode] = useState("");
 
   const isRegister = mode === "register";
+  // On the sign-up page: whether sign-up is open, by invitation, or closed.
+  const [signupMode, setSignupMode] = useState<SignupInfo["mode"]>("open");
+  const [inviteCode, setInviteCode] = useState("");
+
+  useEffect(() => {
+    if (!isRegister) {
+      return;
+    }
+    let isCurrent = true;
+    getSignupInfo()
+      .then((info) => {
+        if (isCurrent) {
+          setSignupMode(info.mode);
+        }
+      })
+      // If this cannot be loaded the form is shown; the backend still decides.
+      .catch(() => {});
+    return () => {
+      isCurrent = false;
+    };
+  }, [isRegister]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -43,7 +64,9 @@ export default function AuthForm({ mode }: AuthFormProps) {
     try {
       const credentials = { email: email.trim(), password };
       const user = isRegister
-        ? await register(credentials)
+        ? await register(
+            signupMode === "invite" ? { ...credentials, invite_code: inviteCode } : credentials,
+          )
         : await login(needsCode ? { ...credentials, code } : credentials);
       // Telling the app who is logged in makes RequireLogin open the home page.
       signIn(user);
@@ -57,6 +80,22 @@ export default function AuthForm({ mode }: AuthFormProps) {
       }
       setIsSubmitting(false);
     }
+  }
+
+  if (isRegister && signupMode === "closed") {
+    return (
+      <div className="space-y-3 text-sm">
+        <p role="status" className="font-medium">
+          Sign-up is closed.
+        </p>
+        <p className="text-zinc-600">
+          This is a demonstration. If you were given an account, log in with it.
+        </p>
+        <Link href="/login" className="font-medium text-zinc-900 underline">
+          Log in
+        </Link>
+      </div>
+    );
   }
 
   return (
@@ -97,6 +136,24 @@ export default function AuthForm({ mode }: AuthFormProps) {
           </p>
         )}
       </div>
+
+      {isRegister && signupMode === "invite" && (
+        <div>
+          <label htmlFor="invite-code" className={labelClass}>
+            Invite code
+          </label>
+          <input
+            id="invite-code"
+            required
+            autoComplete="off"
+            maxLength={100}
+            value={inviteCode}
+            onChange={(event) => setInviteCode(event.target.value)}
+            className={inputClass}
+          />
+          <p className="mt-1 text-xs text-zinc-500">Sign-up is by invitation for now.</p>
+        </div>
+      )}
 
       {needsCode && (
         <div>

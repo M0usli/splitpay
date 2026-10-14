@@ -1,8 +1,10 @@
+import datetime
 import logging
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Response, UploadFile, status
 from fastapi.responses import FileResponse
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth import CurrentUser
@@ -16,6 +18,7 @@ from app.ocr import OcrEngineDep, OcrError
 from app.ocr.loading import encode_png, load_pages
 from app.ocr.pipeline import extract_text
 from app.ocr.preprocessing import preprocess_image
+from app.rate_limit import limiter, too_many
 from app.schemas.receipt import ReceiptRead
 from app.storage import detect_file_extension, save_upload
 
@@ -50,6 +53,23 @@ def upload_receipt(
     If OCR or extraction fails, the receipt is still saved, with status
     "failed" and a message explaining why.
     """
+    # Each upload is a paid AI call, so one user may only do so many a day.
+    midnight = datetime.datetime.now(datetime.UTC).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    uploaded_today = db.scalar(
+        select(func.count())
+        .select_from(Receipt)
+        .where(Receipt.user_id == user.id)
+        .where(Receipt.created_at >= midnight)
+    )
+    if uploaded_today >= settings.daily_scan_limit:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"You can scan {settings.daily_scan_limit} receipts a day. "
+            "Try again tomorrow, or add this expense by hand.",
+        )
+
     # Read one byte more than the limit so an oversized file is detected
     # without loading all of it into memory.
     data = file.file.read(settings.max_upload_bytes + 1)
@@ -116,6 +136,10 @@ def rerun_extraction(
     Useful after a failed extraction (for example the AI service was down),
     without having to upload the file again.
     """
+    # Running the AI again costs the same as a new scan: 10 an hour per user.
+    retry_after = limiter.hit(f"extract:{user.id}", limit=10, window_seconds=3600)
+    if retry_after is not None:
+        raise too_many(retry_after)
     receipt = get_receipt_or_404(db, user, receipt_id)
     if not receipt.raw_text:
         raise HTTPException(

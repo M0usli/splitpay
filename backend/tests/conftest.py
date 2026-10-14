@@ -27,6 +27,7 @@ from app.main import app
 from app.models import Base, IdentityVerification, PaymentPin, User, UserSession
 from app.ocr import get_ocr_engine
 from app.pin import PIN_HEADER
+from app.rate_limit import limiter
 
 MAIN_DATABASE_URL = make_url(get_settings().database_url)
 TEST_DATABASE_NAME = f"{MAIN_DATABASE_URL.database}_test"
@@ -110,6 +111,12 @@ def fake_ocr() -> FakeOcrEngine:
 @pytest.fixture
 def fake_llm() -> FakeLlmClient:
     return FakeLlmClient()
+
+
+@pytest.fixture(autouse=True)
+def fresh_rate_limits() -> None:
+    """Each test starts with no tries counted, as if the server had just started."""
+    limiter.reset()
 
 
 @pytest.fixture
