@@ -72,8 +72,8 @@ test("adding a cost saves it and then makes any expense that is due", async () =
 
   await userEvent.type(await screen.findByLabelText("What is it for?"), "Internet");
   await userEvent.type(screen.getByLabelText("Amount each month"), "85");
-  await userEvent.selectOptions(screen.getByLabelText("Category"), "Bills & Utilities");
-  await userEvent.selectOptions(screen.getByLabelText("Day of the month"), "15");
+  await userEvent.click(screen.getByRole("button", { name: "Bills & Utilities" }));
+  await userEvent.click(screen.getByRole("button", { name: "15th" }));
   await userEvent.click(screen.getByRole("button", { name: "Add recurring cost" }));
 
   expect(createRecurring).toHaveBeenCalledWith({
@@ -154,9 +154,39 @@ test("a failed save shows the reason and keeps what was typed", async () => {
 
   await userEvent.type(await screen.findByLabelText("What is it for?"), "Hydro");
   await userEvent.type(screen.getByLabelText("Amount each month"), "60");
-  await userEvent.selectOptions(screen.getByLabelText("Category"), "Bills & Utilities");
+  await userEvent.click(screen.getByRole("button", { name: "Bills & Utilities" }));
   await userEvent.click(screen.getByRole("button", { name: "Add recurring cost" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent("The database is not available");
   expect(screen.getByLabelText("What is it for?")).toHaveValue("Hydro");
+});
+
+test("the green card adds up the running costs", async () => {
+  render(<RecurringCosts />);
+
+  const card = within(await screen.findByRole("region", { name: "Every month" }));
+  expect(card.getByText("$1,500.00")).toBeInTheDocument();
+  expect(card.getByText("1 running cost")).toBeInTheDocument();
+});
+
+test("a common cost is one tap: it fills in the name and the category", async () => {
+  vi.mocked(listRecurring).mockResolvedValue([]);
+  render(<RecurringCosts />);
+
+  await userEvent.click(await screen.findByRole("button", { name: "Gym" }));
+
+  expect(screen.getByLabelText("What is it for?")).toHaveValue("Gym");
+  expect(screen.getByRole("button", { name: "Health" })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("saving without a category says what is missing", async () => {
+  vi.mocked(listRecurring).mockResolvedValue([]);
+  render(<RecurringCosts />);
+
+  await userEvent.type(await screen.findByLabelText("What is it for?"), "Gym");
+  await userEvent.type(screen.getByLabelText("Amount each month"), "40");
+  await userEvent.click(screen.getByRole("button", { name: "Add recurring cost" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("Choose a category.");
+  expect(createRecurring).not.toHaveBeenCalled();
 });
