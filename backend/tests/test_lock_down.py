@@ -2,7 +2,6 @@
 log-ins may be tried, and how many receipts one user may scan a day.
 """
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.config import Settings
@@ -128,13 +127,10 @@ def test_the_scan_limit_is_per_user(
     assert upload(other_client, PNG).status_code == 201
 
 
-@pytest.mark.parametrize("limit", [10])
-def test_running_the_ai_again_is_limited(client: TestClient, limit: int):
+def test_running_the_ai_again_is_limited_to_10_an_hour(client: TestClient):
     receipt = upload(client, PNG).json()
 
-    answers = [
-        client.post(f"/receipts/{receipt['id']}/extract").status_code for _ in range(limit + 1)
-    ]
+    answers = [client.post(f"/receipts/{receipt['id']}/extract").status_code for _ in range(11)]
 
-    assert answers[-1] == 429
-    assert 429 not in answers[:limit]
+    assert 429 not in answers[:10]
+    assert answers[10] == 429
