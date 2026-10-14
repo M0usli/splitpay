@@ -46,11 +46,26 @@ export default function ReceiptReview({ receiptId }: ReceiptReviewProps) {
   const router = useRouter();
   const [status, setStatus] = useState<Status>({ state: "loading" });
   const [isExtracting, setIsExtracting] = useState(false);
+  // Why the last "read again" failed. The receipt stays on screen.
+  const [extractError, setExtractError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Ignore the answer if the page has moved on to another receipt meanwhile.
+    let isCurrent = true;
     getReceipt(receiptId)
-      .then((receipt) => setStatus({ state: "loaded", receipt }))
-      .catch((error: unknown) => setStatus({ state: "error", message: errorMessage(error) }));
+      .then((receipt) => {
+        if (isCurrent) {
+          setStatus({ state: "loaded", receipt });
+        }
+      })
+      .catch((error: unknown) => {
+        if (isCurrent) {
+          setStatus({ state: "error", message: errorMessage(error) });
+        }
+      });
+    return () => {
+      isCurrent = false;
+    };
   }, [receiptId]);
 
   if (status.state === "loading") {
@@ -75,11 +90,12 @@ export default function ReceiptReview({ receiptId }: ReceiptReviewProps) {
 
   async function handleExtract() {
     setIsExtracting(true);
+    setExtractError(null);
     try {
       const updated = await rerunExtraction(receipt.id);
       setStatus({ state: "loaded", receipt: updated });
     } catch (error) {
-      setStatus({ state: "error", message: errorMessage(error) });
+      setExtractError(errorMessage(error));
     } finally {
       setIsExtracting(false);
     }
@@ -145,6 +161,12 @@ export default function ReceiptReview({ receiptId }: ReceiptReviewProps) {
           >
             {isExtracting ? "Reading with AI…" : "Read the items with AI"}
           </button>
+        )}
+
+        {extractError !== null && (
+          <p role="alert" className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+            {extractError}
+          </p>
         )}
 
         {items.length > 0 && (

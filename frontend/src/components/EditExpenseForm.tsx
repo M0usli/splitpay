@@ -45,9 +45,22 @@ export default function EditExpenseForm({ expenseId }: EditExpenseFormProps) {
   const [readError, setReadError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Ignore the answer if the page has moved on to another expense meanwhile.
+    let isCurrent = true;
     loadExpense(expenseId)
-      .then((loaded) => setStatus({ state: "loaded", ...loaded }))
-      .catch((error: unknown) => setStatus({ state: "error", message: errorMessage(error) }));
+      .then((loaded) => {
+        if (isCurrent) {
+          setStatus({ state: "loaded", ...loaded });
+        }
+      })
+      .catch((error: unknown) => {
+        if (isCurrent) {
+          setStatus({ state: "error", message: errorMessage(error) });
+        }
+      });
+    return () => {
+      isCurrent = false;
+    };
   }, [expenseId]);
 
   if (status.state === "loading") {
