@@ -60,8 +60,8 @@ type ExpenseFormProps = {
 };
 
 const inputClass =
-  "mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm " +
-  "focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500";
+  "mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm " +
+  "focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500";
 const labelClass = "block text-sm font-medium text-zinc-700";
 
 /** Optional text inputs: send null to the API when the user left them empty. */
@@ -113,6 +113,7 @@ export default function ExpenseForm({
     // Stop the browser's default behaviour of reloading the page.
     event.preventDefault();
     if (values.category === "") {
+      setError("Choose a category.");
       return;
     }
 
@@ -180,7 +181,7 @@ export default function ExpenseForm({
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div>
         <div>
           <label htmlFor="date" className={labelClass}>
             Date
@@ -194,26 +195,28 @@ export default function ExpenseForm({
             className={inputClass}
           />
         </div>
-        <div>
-          <label htmlFor="category" className={labelClass}>
-            Category
-          </label>
-          <select
-            id="category"
-            required
-            value={values.category}
-            onChange={(event) => setField("category", event.target.value)}
-            className={inputClass}
-          >
-            <option value="" disabled>
-              Select a category
-            </option>
-            {CATEGORIES.map((category) => (
-              <option key={category} value={category}>
-                {category}
-              </option>
-            ))}
-          </select>
+      </div>
+
+      {/* Buttons instead of a list to open: every category is one tap away. */}
+      <div role="group" aria-label="Category">
+        <p className={labelClass}>Category</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {CATEGORIES.map((category) => (
+            <button
+              key={category}
+              type="button"
+              aria-pressed={values.category === category}
+              onClick={() => setField("category", category)}
+              className={
+                "rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors " +
+                (values.category === category
+                  ? "border-emerald-600 bg-emerald-600 text-white"
+                  : "border-zinc-300 bg-white hover:border-emerald-400")
+              }
+            >
+              {category}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -300,7 +303,7 @@ export default function ExpenseForm({
       )}
 
       {error !== null && (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
         </p>
       )}
@@ -308,7 +311,7 @@ export default function ExpenseForm({
       <button
         type="submit"
         disabled={isSubmitting}
-        className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+        className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:bg-zinc-300"
       >
         {isSubmitting ? "Saving…" : submitLabel}
       </button>

@@ -23,8 +23,8 @@ const MODES: { mode: SplitMode; label: string }[] = [
 ];
 
 const smallInputClass =
-  "w-24 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-sm " +
-  "focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500";
+  "w-24 rounded-xl border border-zinc-300 bg-white px-2 py-1 text-right text-sm " +
+  "focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500";
 
 /** The part of the expense form that says who shares an expense and how. */
 export default function SharingFields({
@@ -61,7 +61,7 @@ export default function SharingFields({
   }
 
   return (
-    <fieldset className="rounded-md border border-zinc-200 p-3">
+    <fieldset className="rounded-xl border border-zinc-200 p-3">
       <legend className="px-1 text-sm font-medium text-zinc-700">Sharing</legend>
 
       <label className="flex items-center gap-2 text-sm">

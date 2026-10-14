@@ -13,7 +13,7 @@ export default function EditExpensePage({ params }: PageProps<"/expenses/[id]/ed
       </Link>
       <h1 className="mt-2 text-2xl font-semibold tracking-tight">Edit expense</h1>
 
-      <section className="mt-6 rounded-lg border border-zinc-200 bg-white p-5">
+      <section className="mt-6 rounded-2xl border border-zinc-200 bg-white shadow-sm p-5">
         <Suspense fallback={<p className="text-zinc-500">Loading expense…</p>}>
           <ExpenseFromParams params={params} />
         </Suspense>

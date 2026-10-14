@@ -13,8 +13,8 @@ export default function ReceiptImage({ receiptId }: ReceiptImageProps) {
   const [showProcessed, setShowProcessed] = useState(false);
 
   const toggleClass = (isActive: boolean) =>
-    "rounded-md px-3 py-1 text-sm font-medium " +
-    (isActive ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100");
+    "rounded-xl px-3 py-1 text-sm font-medium " +
+    (isActive ? "bg-emerald-600 text-white" : "text-zinc-600 hover:bg-zinc-100");
 
   return (
     <section>
@@ -22,7 +22,7 @@ export default function ReceiptImage({ receiptId }: ReceiptImageProps) {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
           Receipt
         </h2>
-        <div className="flex gap-1 rounded-lg border border-zinc-200 bg-white p-1">
+        <div className="flex gap-1 rounded-2xl border border-zinc-200 bg-white shadow-sm p-1">
           <button
             type="button"
             aria-pressed={!showProcessed}
@@ -47,7 +47,7 @@ export default function ReceiptImage({ receiptId }: ReceiptImageProps) {
       <img
         src={receiptImageUrl(receiptId, showProcessed)}
         alt={showProcessed ? "Receipt after image clean-up" : "Uploaded receipt"}
-        className="w-full rounded-lg border border-zinc-200 bg-white"
+        className="w-full rounded-2xl border border-zinc-200 bg-white shadow-sm"
       />
     </section>
   );
