@@ -15,7 +15,8 @@ import {
   type Recurring,
   type RecurringWrite,
 } from "@/lib/api";
-import { formatMoney } from "@/lib/format";
+import { categoryStyle } from "@/lib/categoryStyle";
+import { formatMoney, sumAmounts } from "@/lib/format";
 import { buildShares, sharingFromExpense, type SharingValues } from "@/lib/split";
 
 type Status =
@@ -26,15 +27,46 @@ type Status =
 // The latest day that exists in every month.
 const LAST_DAY = 28;
 
+// One tap fills in the name and the category of the most common monthly costs.
+const COMMON_COSTS: { merchant: string; category: Category }[] = [
+  { merchant: "Rent", category: "Bills & Utilities" },
+  { merchant: "Internet", category: "Bills & Utilities" },
+  { merchant: "Phone", category: "Bills & Utilities" },
+  { merchant: "Hydro", category: "Bills & Utilities" },
+  { merchant: "Gym", category: "Health" },
+  { merchant: "Streaming", category: "Entertainment" },
+];
+// The days most bills fall on, as buttons; any other day is in the list beside them.
+const COMMON_DAYS = [1, 15, 28];
+
+// The same look as the Wallet page: rounded cards, green main buttons.
 const inputClass =
-  "mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm " +
-  "focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500";
+  "mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm " +
+  "focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500";
 const labelClass = "block text-sm font-medium text-zinc-700";
 const buttonClass =
-  "rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50";
+  "rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 " +
+  "disabled:bg-zinc-300";
 const smallButtonClass =
-  "rounded-md border border-zinc-300 px-2 py-1 text-sm hover:bg-zinc-50 disabled:opacity-50";
-const cardClass = "rounded-lg border border-zinc-200 bg-white p-5";
+  "rounded-xl border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 " +
+  "disabled:opacity-50";
+const cardClass = "rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm";
+const chipClass = "rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors";
+const chosenClass = " border-emerald-600 bg-emerald-600 text-white";
+const notChosenClass = " border-zinc-300 bg-white hover:border-emerald-400";
+
+/** What the running costs add up to each month, or null if they use different currencies. */
+function monthlyTotal(costs: Recurring[]): string | null {
+  const running = costs.filter((cost) => cost.is_active);
+  const currencies = new Set(running.map((cost) => cost.currency));
+  if (running.length === 0) {
+    return formatMoney("0", "CAD");
+  }
+  if (currencies.size !== 1) {
+    return null;
+  }
+  return formatMoney(sumAmounts(running.map((cost) => cost.total)), running[0].currency);
+}
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Something went wrong";
@@ -140,21 +172,37 @@ export default function RecurringCosts() {
     );
   }
 
+  const runningCount = status.costs.filter((cost) => cost.is_active).length;
+
   return (
     <div className="space-y-6">
+      {/* The same green card as the Wallet: what all running costs add up to. */}
+      <section
+        aria-label="Every month"
+        className="rounded-3xl bg-gradient-to-br from-emerald-600 to-teal-700 p-6 text-white shadow-lg"
+      >
+        <p className="text-sm font-medium text-emerald-100">Every month</p>
+        <p className="mt-1 text-4xl font-semibold tracking-tight">
+          {monthlyTotal(status.costs) ?? "—"}
+        </p>
+        <p className="mt-1 text-sm text-emerald-100">
+          {runningCount} running {runningCount === 1 ? "cost" : "costs"}
+        </p>
+      </section>
+
       {notice !== null && (
-        <p role="status" className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
-          {notice}
+        <p role="status" className="rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
+          ✓ {notice}
         </p>
       )}
       {actionError !== null && (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
           {actionError}
         </p>
       )}
 
       <section className={cardClass} aria-labelledby="costs-heading">
-        <h2 id="costs-heading" className="text-lg font-semibold">
+        <h2 id="costs-heading" className="text-sm font-semibold text-zinc-700">
           Your recurring costs
         </h2>
         {status.costs.length === 0 ? (
@@ -164,8 +212,14 @@ export default function RecurringCosts() {
         ) : (
           <ul className="mt-3 divide-y divide-zinc-100">
             {status.costs.map((cost) => (
-              <li key={cost.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                <div className="min-w-0">
+              <li key={cost.id} className="flex flex-wrap items-center gap-3 py-3">
+                <span
+                  aria-hidden
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-semibold ${categoryStyle(cost.category)}`}
+                >
+                  {cost.category[0]}
+                </span>
+                <div className={`min-w-0 flex-1 ${cost.is_active ? "" : "opacity-60"}`}>
                   <p className="font-medium">
                     {cost.merchant}{" "}
                     <span className="font-normal text-zinc-600">
@@ -178,7 +232,8 @@ export default function RecurringCosts() {
                     {cost.next_date !== null ? `Next: ${cost.next_date}.` : "Stopped."}
                   </p>
                 </div>
-                <div className="flex gap-2">
+                {/* On a phone the buttons get their own row, so the text keeps its width. */}
+                <div className="flex w-full gap-2 pl-[3.25rem] sm:w-auto sm:pl-0">
                   <button
                     type="button"
                     disabled={isBusy}
@@ -218,7 +273,7 @@ export default function RecurringCosts() {
       </section>
 
       <section className={cardClass} aria-labelledby="form-heading">
-        <h2 id="form-heading" className="text-lg font-semibold">
+        <h2 id="form-heading" className="text-sm font-semibold text-zinc-700">
           {editing === null ? "Add a recurring cost" : `Edit ${editing.merchant}`}
         </h2>
         {/* A changed key makes React build a fresh form, so its inputs start
@@ -265,6 +320,7 @@ function RecurringForm({ editing, isBusy, onCancel, onSave }: RecurringFormProps
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (category === "") {
+      setError("Choose a category.");
       return;
     }
 
@@ -302,6 +358,25 @@ function RecurringForm({ editing, isBusy, onCancel, onSave }: RecurringFormProps
 
   return (
     <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+      {editing === null && (
+        <div role="group" aria-label="Common costs" className="flex flex-wrap gap-2">
+          {COMMON_COSTS.map((common) => (
+            <button
+              key={common.merchant}
+              type="button"
+              aria-pressed={merchant === common.merchant}
+              onClick={() => {
+                setMerchant(common.merchant);
+                setCategory(common.category);
+              }}
+              className={chipClass + (merchant === common.merchant ? chosenClass : notChosenClass)}
+            >
+              {common.merchant}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="recurring-merchant" className={labelClass}>
@@ -333,31 +408,40 @@ function RecurringForm({ editing, isBusy, onCancel, onSave }: RecurringFormProps
             className={inputClass}
           />
         </div>
-        <div>
-          <label htmlFor="recurring-category" className={labelClass}>
-            Category
-          </label>
-          <select
-            id="recurring-category"
-            required
-            value={category}
-            onChange={(event) => setCategory(event.target.value as Category)}
-            className={inputClass}
-          >
-            <option value="" disabled>
-              Select a category
-            </option>
+        {/* Buttons instead of a list to open: every category is one tap away. */}
+        <div role="group" aria-label="Category" className="sm:col-span-2">
+          <p className={labelClass}>Category</p>
+          <div className="mt-2 flex flex-wrap gap-2">
             {CATEGORIES.map((option) => (
-              <option key={option} value={option}>
+              <button
+                key={option}
+                type="button"
+                aria-pressed={category === option}
+                onClick={() => setCategory(option)}
+                className={chipClass + (category === option ? chosenClass : notChosenClass)}
+              >
                 {option}
-              </option>
+              </button>
             ))}
-          </select>
+          </div>
         </div>
         <div>
           <label htmlFor="recurring-day" className={labelClass}>
             Day of the month
           </label>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {COMMON_DAYS.map((day) => (
+              <button
+                key={day}
+                type="button"
+                aria-pressed={dayOfMonth === String(day)}
+                onClick={() => setDayOfMonth(String(day))}
+                className={chipClass + (dayOfMonth === String(day) ? chosenClass : notChosenClass)}
+              >
+                {ordinal(day)}
+              </button>
+            ))}
+          </div>
           <select
             id="recurring-day"
             value={dayOfMonth}
@@ -387,7 +471,7 @@ function RecurringForm({ editing, isBusy, onCancel, onSave }: RecurringFormProps
       )}
 
       {error !== null && (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
         </p>
       )}
