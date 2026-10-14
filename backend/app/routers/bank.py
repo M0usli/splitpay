@@ -60,7 +60,7 @@ def get_status(db: DbSession, user: CurrentUser, settings: SettingsDep) -> BankS
 
 @router.post("/link-token", response_model=LinkToken)
 def create_link_token(user: CurrentUser, bank: BankClientDep) -> LinkToken:
-    """Step 1 of connecting a bank: get the token that opens Plaid's window."""
+    """Start connecting a bank: get the token that opens Plaid's window."""
     try:
         return LinkToken(link_token=bank.create_link_token(user.id))
     except BankError as error:
@@ -71,7 +71,7 @@ def create_link_token(user: CurrentUser, bank: BankClientDep) -> LinkToken:
 def create_connection(
     payload: BankConnectionCreate, db: DbSession, user: CurrentUser, bank: BankClientDep
 ) -> BankConnection:
-    """Step 2: swap the browser's one-time token for the access token and keep it."""
+    """Finish connecting a bank: swap the one-time token for the access token and keep it."""
     try:
         access_token, item_id = bank.exchange_public_token(payload.public_token)
     except BankError as error:

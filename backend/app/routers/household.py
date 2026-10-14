@@ -153,7 +153,6 @@ def list_shared_expenses(db: DbSession, user: CurrentUser) -> list[SharedExpense
 
     return [
         SharedExpenseRead(
-            # The usual expense fields, plus who paid.
             **ExpenseRead.model_validate(expense).model_dump(),
             paid_by=MemberRead.model_validate(members_by_id[expense.user_id]),
         )

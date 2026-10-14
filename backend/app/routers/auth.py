@@ -12,7 +12,7 @@ from app.auth import (
     start_session,
     verify_password,
 )
-from app.config import SettingsDep
+from app.config import Settings, SettingsDep
 from app.database import DbSession
 from app.models import User
 from app.rate_limit import limit_by_address
@@ -28,17 +28,17 @@ login_limit = Depends(limit_by_address("login", limit=10, window_seconds=600))
 signup_limit = Depends(limit_by_address("signup", limit=10, window_seconds=600))
 
 
-@router.get("/signup", response_model=SignupInfo)
-def signup_info(settings: SettingsDep) -> SignupInfo:
-    """Whether sign-up is open, by invitation, or closed."""
-    return SignupInfo(mode=effective_signup_mode(settings))
-
-
-def effective_signup_mode(settings) -> str:
+def effective_signup_mode(settings: Settings) -> str:
     # "invite" with no code set would let nobody in by accident; say "closed" instead.
     if settings.signup_mode == "invite" and not settings.signup_invite_code:
         return "closed"
     return settings.signup_mode
+
+
+@router.get("/signup", response_model=SignupInfo)
+def signup_info(settings: SettingsDep) -> SignupInfo:
+    """Whether sign-up is open, by invitation, or closed."""
+    return SignupInfo(mode=effective_signup_mode(settings))
 
 
 @router.post(
