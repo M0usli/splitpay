@@ -59,7 +59,7 @@ export default function EditExpenseForm({ expenseId }: EditExpenseFormProps) {
 
   if (status.state === "error") {
     return (
-      <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+      <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
         {status.message}
       </p>
     );
@@ -95,7 +95,7 @@ export default function EditExpenseForm({ expenseId }: EditExpenseFormProps) {
   return (
     <>
       {canReadItems && (
-        <div className="mb-4 rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm">
+        <div className="mb-4 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm">
           <p>
             This expense came from a receipt, but its items have not been read yet. Read them to
             split the receipt item by item.
@@ -104,7 +104,7 @@ export default function EditExpenseForm({ expenseId }: EditExpenseFormProps) {
             type="button"
             onClick={handleReadItems}
             disabled={isReadingItems}
-            className="mt-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 font-medium hover:bg-zinc-50 disabled:opacity-50"
+            className="mt-2 rounded-xl border border-zinc-300 bg-white px-3 py-1.5 font-medium hover:bg-zinc-50 disabled:opacity-50"
           >
             {isReadingItems ? "Reading with AI…" : "Read the items with AI"}
           </button>

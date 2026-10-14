@@ -62,7 +62,7 @@ export default function ReceiptReview({ receiptId }: ReceiptReviewProps) {
 
   if (status.state === "error") {
     return (
-      <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+      <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
         {status.message}
       </p>
     );
@@ -103,7 +103,7 @@ export default function ReceiptReview({ receiptId }: ReceiptReviewProps) {
         </h2>
 
         {receipt.status === "failed" && (
-          <div role="alert" className="mb-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-800">
+          <div role="alert" className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">
             <p className="font-medium">The receipt could not be read automatically.</p>
             <p className="mt-1">{receipt.error_message}</p>
             <p className="mt-1">You can still enter the details by hand below.</p>
@@ -111,7 +111,7 @@ export default function ReceiptReview({ receiptId }: ReceiptReviewProps) {
         )}
 
         {receipt.warnings.length > 0 && (
-          <div role="alert" className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div role="alert" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             <p className="font-medium">Please check these before saving:</p>
             <ul className="mt-1 list-disc pl-5">
               {receipt.warnings.map((warning) => (
@@ -122,7 +122,7 @@ export default function ReceiptReview({ receiptId }: ReceiptReviewProps) {
         )}
 
         {extracted !== null && receipt.warnings.length === 0 && (
-          <p className="mb-4 rounded-md bg-green-50 px-4 py-3 text-sm text-green-800">
+          <p className="mb-4 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-800">
             These details were read from the receipt by AI. Check them, correct
             anything that is wrong, then save.
           </p>
@@ -133,7 +133,7 @@ export default function ReceiptReview({ receiptId }: ReceiptReviewProps) {
             type="button"
             onClick={handleExtract}
             disabled={isExtracting}
-            className="mb-4 rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium hover:bg-zinc-50 disabled:opacity-50"
+            className="mb-4 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium hover:bg-zinc-50 disabled:opacity-50"
           >
             {isExtracting ? "Reading with AI…" : "Read the details with AI"}
           </button>
@@ -144,7 +144,7 @@ export default function ReceiptReview({ receiptId }: ReceiptReviewProps) {
             type="button"
             onClick={handleExtract}
             disabled={isExtracting}
-            className="mb-4 rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium hover:bg-zinc-50 disabled:opacity-50"
+            className="mb-4 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium hover:bg-zinc-50 disabled:opacity-50"
           >
             {isExtracting ? "Reading with AI…" : "Read the items with AI"}
           </button>
@@ -154,7 +154,7 @@ export default function ReceiptReview({ receiptId }: ReceiptReviewProps) {
           <ReceiptItems items={items} currency={extracted?.currency ?? "CAD"} />
         )}
 
-        <div className="rounded-lg border border-zinc-200 bg-white p-5">
+        <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm p-5">
           {/* A changed key makes React throw the form away and build a new
               one, so a fresh AI answer replaces the old starting values. */}
           <ExpenseForm
@@ -167,7 +167,7 @@ export default function ReceiptReview({ receiptId }: ReceiptReviewProps) {
         </div>
 
         {receipt.raw_text !== null && (
-          <details className="mt-4 rounded-lg border border-zinc-200 bg-white">
+          <details className="mt-4 rounded-2xl border border-zinc-200 bg-white shadow-sm">
             <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-zinc-700">
               Raw OCR text
             </summary>

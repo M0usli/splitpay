@@ -32,7 +32,7 @@ const WITH_ROOMMATE: HouseholdInfo = {
 async function fillRequiredFields(total: string) {
   await userEvent.type(screen.getByLabelText("Merchant"), "FreshCo");
   await userEvent.type(screen.getByLabelText("Date"), "2026-10-08");
-  await userEvent.selectOptions(screen.getByLabelText("Category"), "Groceries");
+  await userEvent.click(screen.getByRole("button", { name: "Groceries" }));
   await userEvent.type(screen.getByLabelText("Total"), total);
 }
 
@@ -83,7 +83,7 @@ test("submits what the user typed, with empty optional fields sent as null", asy
 
   await user.type(screen.getByLabelText("Merchant"), "  Tim Hortons ");
   await user.type(screen.getByLabelText("Date"), "2026-10-03");
-  await user.selectOptions(screen.getByLabelText("Category"), "Dining");
+  await user.click(screen.getByRole("button", { name: "Dining" }));
   await user.type(screen.getByLabelText("Total"), "6.64");
   await user.click(screen.getByRole("button", { name: "Add expense" }));
 
@@ -113,7 +113,7 @@ test("starts with the values it is given, such as what the AI read", () => {
 
   expect(screen.getByLabelText("Merchant")).toHaveValue("FreshCo");
   expect(screen.getByLabelText("Total")).toHaveValue(38.47);
-  expect(screen.getByLabelText("Category")).toHaveValue("Groceries");
+  expect(screen.getByRole("button", { name: "Groceries" })).toHaveAttribute("aria-pressed", "true");
   // A field the AI did not find starts empty.
   expect(screen.getByLabelText("Date")).toHaveValue("");
 });
@@ -241,4 +241,17 @@ test("sharing an expense without items still starts with an equal split", async 
   await userEvent.click(screen.getByLabelText("Share this expense with my household"));
 
   expect(screen.getByLabelText("Equally")).toBeChecked();
+});
+
+test("saving without a category says what is missing", async () => {
+  const onSubmit = vi.fn();
+  render(<ExpenseForm submitLabel="Save" onSubmit={onSubmit} />);
+
+  await userEvent.type(screen.getByLabelText("Merchant"), "FreshCo");
+  await userEvent.type(screen.getByLabelText("Date"), "2026-10-08");
+  await userEvent.type(screen.getByLabelText("Total"), "10");
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("Choose a category.");
+  expect(onSubmit).not.toHaveBeenCalled();
 });

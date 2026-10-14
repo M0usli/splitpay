@@ -29,8 +29,8 @@ type Summary =
 const PREVIEW_DELAY_MS = 400;
 
 const textInputClass =
-  "rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm " +
-  "focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500";
+  "rounded-xl border border-zinc-300 bg-white px-2 py-1 text-sm " +
+  "focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500";
 const linkButtonClass = "text-xs text-zinc-600 underline hover:text-zinc-900";
 
 /** The part of an email before the @, to keep the tick boxes short. */
@@ -69,7 +69,7 @@ export default function ItemSplitEditor({
     <div className="space-y-3">
       <ul className="space-y-2">
         {rows.map((row, position) => (
-          <li key={row.key} className="rounded-md border border-zinc-200 p-2">
+          <li key={row.key} className="rounded-xl border border-zinc-200 p-2">
             <div className="flex gap-2">
               <input
                 type="text"
@@ -150,7 +150,7 @@ export default function ItemSplitEditor({
 
       <button
         type="button"
-        className="rounded-md border border-zinc-300 px-2 py-1 text-sm hover:bg-zinc-50"
+        className="rounded-xl border border-zinc-300 px-2 py-1 text-sm hover:bg-zinc-50"
         onClick={() => onChange([...rows, emptyRow(allIds)])}
       >
         Add an item
@@ -212,7 +212,7 @@ function SplitSummary({ rows, tax, total, currency, myId }: SplitSummaryProps) {
   }
   if (summary.state === "error") {
     return (
-      <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+      <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
         {summary.message}
       </p>
     );
@@ -220,7 +220,7 @@ function SplitSummary({ rows, tax, total, currency, myId }: SplitSummaryProps) {
 
   const { people, difference } = summary.preview;
   return (
-    <div className="rounded-md bg-zinc-50 p-3 text-sm" aria-label="Who pays what">
+    <div className="rounded-xl bg-zinc-50 p-3 text-sm" aria-label="Who pays what">
       <p className="font-medium">Who pays what</p>
       <ul className="mt-1 space-y-1">
         {people.map((person) => (
