@@ -28,14 +28,23 @@ function makeExpense(overrides: Partial<Expense> = {}): Expense {
   };
 }
 
-test("shows one row per expense with a formatted total", () => {
+test("shows one line per expense with a formatted total", () => {
   const expenses = [makeExpense(), makeExpense({ id: 2, merchant: "Rogers", total: "85" })];
   render(<ExpenseTable expenses={expenses} deletingId={null} onDelete={() => {}} />);
 
-  const rows = screen.getAllByRole("row").slice(1); // skip the header row
+  const rows = screen.getAllByRole("listitem");
   expect(rows).toHaveLength(2);
   expect(within(rows[0]).getByText("$38.47")).toBeInTheDocument();
+  expect(within(rows[0]).getByText("2026-10-08 · Groceries")).toBeInTheDocument();
   expect(within(rows[1]).getByText("$85.00")).toBeInTheDocument();
+});
+
+test("a shared expense says so", () => {
+  render(
+    <ExpenseTable expenses={[makeExpense({ is_shared: true })]} deletingId={null} onDelete={() => {}} />,
+  );
+
+  expect(screen.getByText("2026-10-08 · Groceries · shared")).toBeInTheDocument();
 });
 
 test("links to the receipt only when the expense came from one", () => {

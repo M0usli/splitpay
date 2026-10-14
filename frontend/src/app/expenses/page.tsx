@@ -9,9 +9,9 @@ export default function ExpensesPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Expenses</h1>
         <Link
           href="/expenses/new"
-          className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+          className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500"
         >
-          Add expense
+          + Add expense
         </Link>
       </div>
 

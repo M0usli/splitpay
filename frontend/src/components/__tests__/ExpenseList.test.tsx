@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
@@ -91,9 +91,60 @@ test("asks the backend again when a filter changes", async () => {
   render(<ExpenseList />);
   await screen.findByText("FreshCo");
 
-  await user.selectOptions(screen.getByLabelText("Category"), "Dining");
+  await user.click(screen.getByRole("button", { name: "Dining" }));
 
   expect(listExpenses).toHaveBeenLastCalledWith({ month: "", category: "Dining" });
+  expect(screen.getByRole("button", { name: "Dining" })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("the month buttons filter by this month or last month", async () => {
+  const user = userEvent.setup();
+  vi.mocked(listExpenses).mockResolvedValue(EXPENSES);
+  render(<ExpenseList />);
+  await screen.findByText("FreshCo");
+
+  await user.click(screen.getByRole("button", { name: "This month" }));
+  const thisMonth = vi.mocked(listExpenses).mock.lastCall?.[0].month;
+  await user.click(screen.getByRole("button", { name: "Last month" }));
+  const lastMonth = vi.mocked(listExpenses).mock.lastCall?.[0].month;
+
+  expect(thisMonth).toMatch(/^\d{4}-\d{2}$/);
+  expect(lastMonth).toMatch(/^\d{4}-\d{2}$/);
+  expect(lastMonth).not.toBe(thisMonth);
+  expect(screen.getByText("Total for these filters")).toBeInTheDocument();
+});
+
+test("any month can still be picked", async () => {
+  const user = userEvent.setup();
+  vi.mocked(listExpenses).mockResolvedValue(EXPENSES);
+  render(<ExpenseList />);
+  await screen.findByText("FreshCo");
+
+  await user.click(screen.getByRole("button", { name: "Pick a month" }));
+  await user.type(screen.getByLabelText("Which month"), "2026-03");
+
+  expect(listExpenses).toHaveBeenLastCalledWith({ month: "2026-03", category: "" });
+});
+
+test("clearing the filters goes back to everything", async () => {
+  const user = userEvent.setup();
+  vi.mocked(listExpenses).mockResolvedValue(EXPENSES);
+  render(<ExpenseList />);
+  await screen.findByText("FreshCo");
+  await user.click(screen.getByRole("button", { name: "Dining" }));
+
+  await user.click(screen.getByRole("button", { name: "Clear filters" }));
+
+  expect(listExpenses).toHaveBeenLastCalledWith({ month: "", category: "" });
+  expect(screen.getByRole("button", { name: "All time" })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("the big number is the total of what is listed", async () => {
+  vi.mocked(listExpenses).mockResolvedValue(EXPENSES);
+  render(<ExpenseList />);
+
+  const card = within(await screen.findByRole("region", { name: "Total" }));
+  expect(await card.findByText("$45.11")).toBeInTheDocument();
 });
 
 test("removes a row after the user confirms the delete", async () => {
