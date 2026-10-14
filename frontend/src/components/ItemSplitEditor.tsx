@@ -191,8 +191,7 @@ function SplitSummary({ rows, tax, total, currency, myId }: SplitSummaryProps) {
         })
         .catch((error: unknown) => {
           if (isCurrent) {
-            const message = errorMessage(error);
-            setSummary({ state: "error", message });
+            setSummary({ state: "error", message: errorMessage(error) });
           }
         });
     }, PREVIEW_DELAY_MS);

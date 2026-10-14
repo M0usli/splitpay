@@ -94,7 +94,6 @@ export default function SplitBill() {
   // second tap on a Pay button finds the id the first tap made.
   const payIds = useRef(new RequestIds());
 
-  // Load the page's data once, when the page opens.
   useEffect(() => {
     let isCurrent = true;
     loadHouseholdData()

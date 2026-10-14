@@ -22,7 +22,6 @@ export default function ExpenseTable({ expenses, deletingId, onDelete }: Expense
     <ul className="divide-y divide-zinc-100 rounded-2xl border border-zinc-200 bg-white px-4 shadow-sm">
       {expenses.map((expense) => (
         <li key={expense.id} className="flex flex-wrap items-start gap-3 py-3">
-          {/* The category's first letter in its colour. */}
           <CategoryBadge category={expense.category} />
 
           <div className="min-w-0 flex-1">

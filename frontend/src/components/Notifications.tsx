@@ -37,8 +37,7 @@ export default function Notifications() {
       })
       .catch((error: unknown) => {
         if (isCurrent) {
-          const message = errorMessage(error);
-          setStatus({ state: "error", message });
+          setStatus({ state: "error", message: errorMessage(error) });
         }
       });
     return () => {

@@ -54,8 +54,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         setAuth(user === null ? { state: "signedOut" } : { state: "signedIn", user });
       })
       .catch((error: unknown) => {
-        const message = errorMessage(error);
-        setAuth({ state: "error", message });
+        setAuth({ state: "error", message: errorMessage(error) });
       });
   }, []);
 

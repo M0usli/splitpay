@@ -66,8 +66,7 @@ export default function Dashboard() {
       })
       .catch((error: unknown) => {
         if (isCurrent) {
-          const message = errorMessage(error);
-          setStatus({ state: "error", message });
+          setStatus({ state: "error", message: errorMessage(error) });
         }
       });
 

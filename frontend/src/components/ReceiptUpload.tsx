@@ -61,8 +61,7 @@ export default function ReceiptUpload() {
       }
       router.push(`/receipts/${receipt.id}`);
     } catch (caught) {
-      const message = errorMessage(caught);
-      setStatus({ state: "error", message });
+      setStatus({ state: "error", message: errorMessage(caught) });
     }
   }
 
