@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type ChangeEvent, type DragEvent } from "react";
 
-import { uploadReceipt } from "@/lib/api";
+import { errorMessage, uploadReceipt } from "@/lib/api";
 
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "application/pdf"];
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -61,7 +61,7 @@ export default function ReceiptUpload() {
       }
       router.push(`/receipts/${receipt.id}`);
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : "Something went wrong";
+      const message = errorMessage(caught);
       setStatus({ state: "error", message });
     }
   }

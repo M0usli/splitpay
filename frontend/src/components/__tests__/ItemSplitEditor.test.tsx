@@ -8,7 +8,10 @@ import { previewItemSplit, type ExtractedItem, type Member, type SplitPreview } 
 import { rowsFromExtracted, type ItemRow } from "@/lib/itemSplit";
 
 // The summary asks the backend; these tests answer for it.
-vi.mock("@/lib/api", () => ({ previewItemSplit: vi.fn() }));
+vi.mock("@/lib/api", async (importOriginal) => ({
+  errorMessage: (await importOriginal<typeof import("@/lib/api")>()).errorMessage,
+  previewItemSplit: vi.fn(),
+}));
 
 const SAM: Member = { id: 1, email: "sam@example.com" };
 const ALEX: Member = { id: 2, email: "alex@example.com" };

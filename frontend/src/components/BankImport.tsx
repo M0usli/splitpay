@@ -7,6 +7,7 @@ import {
   CATEGORIES,
   connectBank,
   createBankLinkToken,
+  errorMessage,
   getBankStatus,
   ignoreBankTransaction,
   listBankTransactions,
@@ -37,10 +38,6 @@ const smallButtonClass =
   "disabled:opacity-50";
 const cardClass = "rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm";
 const headingClass = "text-sm font-semibold text-zinc-700";
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong";
-}
 
 async function loadBankData(): Promise<BankData> {
   const [status, transactions] = await Promise.all([getBankStatus(), listBankTransactions()]);

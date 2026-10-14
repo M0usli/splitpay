@@ -93,6 +93,11 @@ export class ApiError extends Error {
   }
 }
 
+/** The message of a caught error, for showing to the user. */
+export function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Something went wrong";
+}
+
 // FastAPI puts error details in a "detail" field: a string for errors we
 // raise ourselves, or a list of problems when request validation fails.
 type ErrorBody = {

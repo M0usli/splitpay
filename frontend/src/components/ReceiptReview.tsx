@@ -8,6 +8,7 @@ import ReceiptImage from "@/components/ReceiptImage";
 import ReceiptItems from "@/components/ReceiptItems";
 import {
   createExpense,
+  errorMessage,
   getReceipt,
   rerunExtraction,
   type ExpenseUpdate,
@@ -38,10 +39,6 @@ function toFormValues(fields: ExtractedFields | null): Partial<ExpenseFormValues
     currency: fields.currency ?? "CAD",
     category: fields.category ?? "",
   };
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong";
 }
 
 /** Review page: the receipt on the left, an editable form of the extracted fields on the right. */

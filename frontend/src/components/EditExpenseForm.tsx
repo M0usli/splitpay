@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import ExpenseForm from "@/components/ExpenseForm";
 import {
+  errorMessage,
   getExpense,
   getReceipt,
   rerunExtraction,
@@ -23,10 +24,6 @@ type Status =
 type EditExpenseFormProps = {
   expenseId: number;
 };
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong";
-}
 
 /** The expense, and its receipt if it has one, so its items can be offered for splitting. */
 async function loadExpense(expenseId: number): Promise<{ expense: Expense; receipt: Receipt | null }> {

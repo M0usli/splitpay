@@ -13,6 +13,7 @@ import {
   cancelMoneyRequest,
   declineMoneyRequest,
   downloadStatement,
+  errorMessage,
   getBalance,
   getHousehold,
   getWallet,
@@ -85,10 +86,6 @@ const primaryButtonClass =
   "w-full rounded-xl bg-emerald-600 px-4 py-3 text-base font-semibold text-white " +
   "hover:bg-emerald-500 disabled:bg-zinc-300";
 const chipClass = "rounded-full border px-4 py-1.5 text-sm font-medium transition-colors";
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong";
-}
 
 async function loadWalletData(myEmail: string): Promise<WalletData> {
   const [wallet, transactions, allRequests, limits, household] = await Promise.all([

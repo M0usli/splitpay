@@ -6,7 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import CategoryChart from "@/components/CategoryChart";
 import MonthlyChart from "@/components/MonthlyChart";
 import TopMerchants from "@/components/TopMerchants";
-import { getStatsSummary, type StatsSummary } from "@/lib/api";
+import { errorMessage, getStatsSummary, type StatsSummary } from "@/lib/api";
 import { currentMonth, formatMoney, formatMonth } from "@/lib/format";
 
 type Status =
@@ -66,7 +66,7 @@ export default function Dashboard() {
       })
       .catch((error: unknown) => {
         if (isCurrent) {
-          const message = error instanceof Error ? error.message : "Something went wrong";
+          const message = errorMessage(error);
           setStatus({ state: "error", message });
         }
       });
