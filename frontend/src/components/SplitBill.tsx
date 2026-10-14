@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { useAuth } from "@/components/AuthProvider";
+import Avatar from "@/components/Avatar";
 import {
   createHousehold,
   deleteSettlement,
@@ -39,15 +40,27 @@ type Status =
   | { state: "loaded"; data: HouseholdData }
   | { state: "error"; message: string };
 
+// The same look as the Wallet page: rounded cards, green main buttons.
 const inputClass =
-  "mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm " +
-  "focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500";
+  "mt-1 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm " +
+  "focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500";
 const labelClass = "block text-sm font-medium text-zinc-700";
 const buttonClass =
-  "rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50";
+  "rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 " +
+  "disabled:bg-zinc-300";
 const smallButtonClass =
-  "rounded-md border border-zinc-300 px-2 py-1 text-sm hover:bg-zinc-50 disabled:opacity-50";
-const cardClass = "rounded-lg border border-zinc-200 bg-white p-5";
+  "rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 " +
+  "hover:bg-zinc-100 disabled:opacity-50";
+const cardClass = "rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm";
+const headingClass = "text-sm font-semibold text-zinc-700";
+
+/** A small coloured label for what a member owes or is owed. */
+function netPillClass(net: string): string {
+  if (net.startsWith("-")) {
+    return "bg-amber-100 text-amber-800";
+  }
+  return Number(net) === 0 ? "bg-zinc-100 text-zinc-600" : "bg-emerald-100 text-emerald-800";
+}
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Something went wrong";
@@ -132,7 +145,7 @@ export default function SplitBill() {
   // "Not enough money" and "verify your identity" each have a page that fixes them.
   const helpLink = helpLinkFor(actionError);
   const alert = actionError !== null && (
-    <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+    <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
       {actionError}
     </p>
   );
@@ -205,61 +218,45 @@ export default function SplitBill() {
         </p>
       )}
       {notice !== null && (
-        <p role="status" className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
-          {notice}
+        <p role="status" className="rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
+          ✓ {notice}
         </p>
       )}
 
-      <section className={cardClass} aria-labelledby="household-heading">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 id="household-heading" className="text-lg font-semibold">
-              {household.name}
-            </h2>
-            <p className="mt-1 text-sm text-zinc-600">
-              Invite code:{" "}
-              <span className="font-mono font-semibold tracking-wider text-zinc-900">
-                {household.invite_code}
-              </span>
-            </p>
-            <p className="text-xs text-zinc-500">Give this code to a roommate so they can join.</p>
-          </div>
-          <button type="button" onClick={handleLeave} disabled={isBusy} className={smallButtonClass}>
-            Leave household
-          </button>
-        </div>
-        <ul className="mt-4 divide-y divide-zinc-100 text-sm">
-          {balance.members.map(({ member, net }) => (
-            <li key={member.id} className="flex items-center justify-between py-2">
-              <span>{member.id === myId ? `You (${member.email})` : member.email}</span>
-              <span className="text-zinc-600">{describeNet(net, balance.currency)}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className={cardClass} aria-labelledby="balance-heading">
-        <h2 id="balance-heading" className="text-lg font-semibold">
+      {/* The balance comes first: it is what people open this page for. */}
+      <section
+        aria-labelledby="balance-heading"
+        className="rounded-3xl bg-gradient-to-br from-emerald-600 to-teal-700 p-6 text-white shadow-lg"
+      >
+        <h2 id="balance-heading" className="text-sm font-medium text-emerald-100">
           Balance
         </h2>
-        <p className="mt-1 text-sm text-zinc-600">{describeMine(myNet, balance.currency)}</p>
+        <p className="mt-1 text-3xl font-semibold tracking-tight">
+          {describeMine(myNet, balance.currency)}
+        </p>
 
         {balance.payments.length === 0 ? (
-          <p className="mt-3 text-sm text-zinc-500">Everyone is settled up.</p>
+          <p className="mt-3 text-sm text-emerald-100">Everyone is settled up.</p>
         ) : (
-          <ul className="mt-3 space-y-2 text-sm">
+          <ul className="mt-4 space-y-3 text-sm">
             {balance.payments.map((payment) => (
               <li
                 key={`${payment.owed_by.id}-${payment.owed_to.id}`}
-                className="flex flex-wrap items-center justify-between gap-2"
+                className="rounded-2xl bg-white p-4 text-zinc-900"
               >
-                <span>
-                  {nameOf(payment.owed_by)} {payment.owed_by.id === myId ? "pay" : "pays"}{" "}
-                  {nameOf(payment.owed_to).replace("You", "you")}{" "}
-                  <strong>{formatMoney(payment.amount, balance.currency)}</strong>
+                <span className="flex items-center gap-3">
+                  <Avatar
+                    email={payment.owed_by.id === myId ? payment.owed_to.email : payment.owed_by.email}
+                    size="h-9 w-9 text-sm"
+                  />
+                  <span className="min-w-0 break-words">
+                    {nameOf(payment.owed_by)} {payment.owed_by.id === myId ? "pay" : "pays"}{" "}
+                    {nameOf(payment.owed_to).replace("You", "you")}{" "}
+                    <strong>{formatMoney(payment.amount, balance.currency)}</strong>
+                  </span>
                 </span>
                 {payment.owed_by.id === myId && (
-                  <span className="flex flex-wrap items-center gap-2">
+                  <span className="mt-3 flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       disabled={isBusy}
@@ -268,7 +265,7 @@ export default function SplitBill() {
                         setNotice(null);
                         setPaying({ to: payment.owed_to, amount: payment.amount });
                       }}
-                      className={buttonClass}
+                      className={`${buttonClass} flex-1`}
                     >
                       Pay {formatMoney(payment.amount, balance.currency)} from wallet
                     </button>
@@ -289,8 +286,41 @@ export default function SplitBill() {
         )}
       </section>
 
+      <section className={cardClass} aria-labelledby="household-heading">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 id="household-heading" className="text-lg font-semibold">
+              {household.name}
+            </h2>
+            <p className="mt-2 text-sm text-zinc-600">
+              Invite code:{" "}
+              <span className="rounded-lg bg-zinc-100 px-2.5 py-1 font-mono font-semibold tracking-wider text-zinc-900">
+                {household.invite_code}
+              </span>
+            </p>
+            <p className="mt-2 text-xs text-zinc-500">Give this code to a roommate so they can join.</p>
+          </div>
+          <button type="button" onClick={handleLeave} disabled={isBusy} className={smallButtonClass}>
+            Leave household
+          </button>
+        </div>
+        <ul className="mt-4 divide-y divide-zinc-100 text-sm">
+          {balance.members.map(({ member, net }) => (
+            <li key={member.id} className="flex flex-wrap items-center gap-3 py-3">
+              <Avatar email={member.email} size="h-9 w-9 text-sm" />
+              <span className="min-w-0 flex-1 truncate">
+                {member.id === myId ? `You (${member.email})` : member.email}
+              </span>
+              <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${netPillClass(net)}`}>
+                {describeNet(net, balance.currency)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
       <section className={cardClass} aria-labelledby="shared-heading">
-        <h2 id="shared-heading" className="text-lg font-semibold">
+        <h2 id="shared-heading" className={headingClass}>
           Shared expenses
         </h2>
         {expenses.length === 0 ? (
@@ -299,48 +329,39 @@ export default function SplitBill() {
             an expense.
           </p>
         ) : (
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="text-xs uppercase text-zinc-500">
-                <tr>
-                  <th className="py-2 pr-4 font-medium">Date</th>
-                  <th className="py-2 pr-4 font-medium">Merchant</th>
-                  <th className="py-2 pr-4 font-medium">Paid by</th>
-                  <th className="py-2 pr-4 text-right font-medium">Total</th>
-                  <th className="py-2 text-right font-medium">Your part</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {expenses.map((expense) => {
-                  const myShare = expense.shares.find((share) => share.user_id === myId);
-                  return (
-                    <tr key={expense.id}>
-                      <td className="whitespace-nowrap py-2 pr-4">{expense.date}</td>
-                      <td className="py-2 pr-4">{expense.merchant}</td>
-                      <td className="py-2 pr-4">{nameOf(expense.paid_by)}</td>
-                      <td className="py-2 pr-4 text-right">
-                        {formatMoney(expense.total, expense.currency)}
-                      </td>
-                      <td className="py-2 text-right">
-                        {formatMoney(myShare?.amount ?? "0", expense.currency)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          // A list, not a table: five columns do not fit on a phone.
+          <ul className="mt-2 divide-y divide-zinc-100 text-sm">
+            {expenses.map((expense) => {
+              const myShare = expense.shares.find((share) => share.user_id === myId);
+              return (
+                <li key={expense.id} className="flex items-start justify-between gap-3 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{expense.merchant}</p>
+                    <p className="break-words text-xs text-zinc-500">
+                      {expense.date} · paid by {nameOf(expense.paid_by).replace("You", "you")}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="font-semibold">{formatMoney(expense.total, expense.currency)}</p>
+                    <p className="text-xs text-zinc-500">
+                      Your part {formatMoney(myShare?.amount ?? "0", expense.currency)}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </section>
 
       {settlements.length > 0 && (
         <section className={cardClass} aria-labelledby="payments-heading">
-          <h2 id="payments-heading" className="text-lg font-semibold">
+          <h2 id="payments-heading" className={headingClass}>
             Payments made
           </h2>
-          <ul className="mt-3 space-y-2 text-sm">
+          <ul className="mt-2 divide-y divide-zinc-100 text-sm">
             {settlements.map((settlement) => (
-              <li key={settlement.id} className="flex flex-wrap items-center justify-between gap-2">
+              <li key={settlement.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
                 <span>
                   {nameOf(settlement.paid_by)} paid {nameOf(settlement.paid_to).replace("You", "you")}{" "}
                   <strong>{formatMoney(settlement.amount, settlement.currency)}</strong>
@@ -420,7 +441,7 @@ function NoHousehold({ isBusy, onCreate, onJoin }: NoHouseholdProps) {
           onChange={(event) => setName(event.target.value)}
           className={inputClass}
         />
-        <button type="submit" disabled={isBusy} className={`${buttonClass} mt-4`}>
+        <button type="submit" disabled={isBusy} className={`${buttonClass} mt-4 w-full`}>
           Create
         </button>
       </form>
@@ -440,7 +461,7 @@ function NoHousehold({ isBusy, onCreate, onJoin }: NoHouseholdProps) {
           onChange={(event) => setCode(event.target.value)}
           className={`${inputClass} font-mono uppercase tracking-wider`}
         />
-        <button type="submit" disabled={isBusy} className={`${buttonClass} mt-4`}>
+        <button type="submit" disabled={isBusy} className={`${buttonClass} mt-4 w-full`}>
           Join
         </button>
       </form>

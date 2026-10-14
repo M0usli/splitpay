@@ -5,6 +5,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import AmountPad from "@/components/AmountPad";
+import Avatar from "@/components/Avatar";
 import PinPrompt from "@/components/PinPrompt";
 import StepHeader from "@/components/StepHeader";
 import { useAuth } from "@/components/AuthProvider";
@@ -174,21 +175,6 @@ function describe(transaction: WalletTransaction): string {
     return transaction.direction === "out" ? `Paid ${who}'s request` : `${who} paid your request`;
   }
   return transaction.direction === "out" ? `Sent to ${who}` : `Received from ${who}`;
-}
-
-/** A coloured circle with the person's first letter. */
-function Avatar({ email, size = "h-11 w-11 text-base" }: { email: string; size?: string }) {
-  // The same email always gets the same colour.
-  const colours = ["bg-violet-100 text-violet-700", "bg-lime-100 text-lime-700", "bg-amber-100 text-amber-700", "bg-rose-100 text-rose-700", "bg-sky-100 text-sky-700"];
-  const index = [...email].reduce((sum, letter) => sum + letter.charCodeAt(0), 0) % colours.length;
-  return (
-    <span
-      aria-hidden
-      className={`flex ${size} shrink-0 items-center justify-center rounded-full font-semibold uppercase ${colours[index]}`}
-    >
-      {email[0]}
-    </span>
-  );
 }
 
 /** A round button with a label under it, like the actions in a payment app. */
