@@ -1,6 +1,7 @@
 # SplitPay
 
-[![CI](https://github.com/M0usli/receipt-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/M0usli/receipt-tracker/actions/workflows/ci.yml)
+[![CI](https://github.com/M0usli/splitpay/actions/workflows/ci.yml/badge.svg)](https://github.com/M0usli/splitpay/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 A wallet app for sending money and splitting bills. It holds a balance of
 pretend money you can send to other people, turns a photo of a receipt into
@@ -28,7 +29,8 @@ this comment block's opening and closing lines so the images show.
 | ![Expenses page](docs/screenshots/expenses.png) | ![Dashboard page](docs/screenshots/dashboard.png) |
 -->
 
-_Screenshots to add: `docs/screenshots/upload.png`, `review.png`, `expenses.png`, `dashboard.png`._
+_Screenshots are coming soon. Until then, [docs/DEMO.md](docs/DEMO.md) walks
+through every screen._
 
 ## What it does
 
@@ -155,8 +157,8 @@ You need [Docker Desktop](https://www.docker.com/products/docker-desktop/) and
 an [Anthropic API key](https://console.anthropic.com/).
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/receipt-tracker.git
-cd receipt-tracker
+git clone https://github.com/M0usli/splitpay.git
+cd splitpay
 
 # Create your local settings file, then paste your API key into it.
 cp .env.example .env
@@ -314,11 +316,13 @@ docker compose exec backend python -m app.eval
 
 ### Results
 
+Results on a set of real, hand-labelled receipt photos will be published here
+once that set is collected. The five sample receipts are synthetic and too easy
+to report as accuracy.
+
 <!--
 Fill this in from the summary table that `python -m app.eval` prints for YOUR
-receipts in eval/receipts/. Do not use the numbers from the sample set: those
-five receipts are synthetic and too easy.
--->
+receipts in eval/receipts/, then delete the paragraph above.
 
 Evaluated on **__ receipts** (my own photos, hand-labelled) with model
 `claude-haiku-5-5` on **YYYY-MM-DD**.
@@ -333,12 +337,13 @@ Evaluated on **__ receipts** (my own photos, hand-labelled) with model
 | All fields correct | __ % | __ % |
 | Average time per receipt | __ s | __ s |
 
-_What the numbers show, in a sentence or two: to be written._
+_What the numbers show, in a sentence or two._
+-->
 
 ## Project structure
 
 ```
-receipt-tracker/
+splitpay/
 ├── compose.yaml            three services: postgres, backend, frontend
 ├── .env.example            settings template (copy to .env)
 ├── backend/
@@ -531,7 +536,7 @@ host for the backend and a free Postgres), but it fits this app badly:
 - **Receipts are personal.** They carry card digits and addresses.
 
 None of these is a blocker, and the work to become deploy-ready is tracked
-in [issue #22](https://github.com/M0usli/receipt-tracker/issues/22). Until
+in [issue #22](https://github.com/M0usli/splitpay/issues/22). Until
 then, [docs/DEMO.md](docs/DEMO.md) shows what the
 app does.
 
