@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
@@ -51,11 +52,17 @@ def to_transaction(db: Session, transfer: WalletTransfer, wallet: Wallet) -> Tra
 
 
 def check_same_request(
-    transfer: WalletTransfer, *, source: Wallet, destination: Wallet, amount
+    transfer: WalletTransfer,
+    *,
+    kind: TransferKind,
+    source: Wallet,
+    destination: Wallet,
+    amount: Decimal,
 ) -> None:
     """A reused key must be a repeat of the same request, not a different one."""
     same = (
-        transfer.from_wallet_id == source.id
+        transfer.kind == kind
+        and transfer.from_wallet_id == source.id
         and transfer.to_wallet_id == destination.id
         and transfer.amount == amount
     )
@@ -103,7 +110,13 @@ def top_up(payload: TopUpRequest, db: DbSession, user: CurrentUser) -> TransferR
         idempotency_key=payload.idempotency_key,
         allow_overdraft=True,
     )
-    check_same_request(transfer, source=outside, destination=wallet, amount=payload.amount)
+    check_same_request(
+        transfer,
+        kind=TransferKind.TOP_UP,
+        source=outside,
+        destination=wallet,
+        amount=payload.amount,
+    )
     db.commit()
     db.refresh(transfer)
     return TransferResult(
@@ -135,7 +148,13 @@ def send_money(payload: SendRequest, db: DbSession, user: PayingUser) -> Transfe
         idempotency_key=payload.idempotency_key,
         note=payload.note.strip() or None if payload.note else None,
     )
-    check_same_request(transfer, source=wallet, destination=recipient_wallet, amount=payload.amount)
+    check_same_request(
+        transfer,
+        kind=TransferKind.SEND,
+        source=wallet,
+        destination=recipient_wallet,
+        amount=payload.amount,
+    )
     if not is_repeat:
         reason = f" For: {transfer.note}" if transfer.note else ""
         notify(db, recipient.id, f"{user.email} sent you {money(transfer.amount)}.{reason}")

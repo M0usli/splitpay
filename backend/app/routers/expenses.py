@@ -21,6 +21,7 @@ from app.schemas.expense import (
     SplitItem,
 )
 from app.splitting import ItemLine, PersonSplit, split_by_items, split_equally
+from app.statement import safe_cell
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
@@ -190,18 +191,6 @@ def find_expenses(
     return list(db.scalars(query))
 
 
-def protect_spreadsheet_cell(text: str) -> str:
-    """Stop a spreadsheet from running a text cell as a formula.
-
-    Excel and Google Sheets treat a cell starting with = + - or @ as a
-    formula. A merchant name read from a receipt could start that way, so we
-    put an apostrophe in front, which makes the spreadsheet show it as text.
-    """
-    if text.startswith(("=", "+", "-", "@")):
-        return "'" + text
-    return text
-
-
 @router.get("", response_model=list[ExpenseRead])
 def list_expenses(
     db: DbSession, user: CurrentUser, month: MonthQuery = None, category: Category | None = None
@@ -228,13 +217,13 @@ def export_expenses_csv(
         writer.writerow(
             [
                 expense.date.isoformat(),
-                protect_spreadsheet_cell(expense.merchant),
+                safe_cell(expense.merchant),
                 expense.category.value,
                 expense.subtotal if expense.subtotal is not None else "",
                 expense.tax if expense.tax is not None else "",
                 expense.total,
                 expense.currency,
-                protect_spreadsheet_cell(expense.notes or ""),
+                safe_cell(expense.notes),
                 "receipt" if expense.receipt_id is not None else "manual",
                 "yes" if expense.was_edited else "no",
             ]
