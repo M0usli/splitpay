@@ -8,7 +8,6 @@ export { categoryValues as CATEGORIES } from "./api-types";
 
 type Schemas = components["schemas"];
 
-export type HealthResponse = Schemas["HealthResponse"];
 export type Category = Schemas["Category"];
 export type Expense = Schemas["ExpenseRead"];
 export type ExpenseCreate = Schemas["ExpenseCreate"];
@@ -94,6 +93,11 @@ export class ApiError extends Error {
   }
 }
 
+/** The message of a caught error, for showing to the user. */
+export function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Something went wrong";
+}
+
 // FastAPI puts error details in a "detail" field: a string for errors we
 // raise ourselves, or a list of problems when request validation fails.
 type ErrorBody = {
@@ -117,7 +121,8 @@ async function readErrorMessage(response: Response): Promise<string> {
   return `Request failed with status ${response.status}`;
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+/** Call the backend and return its response, or throw an ApiError if it failed. */
+async function fetchOk(path: string, init?: RequestInit): Promise<Response> {
   let response: Response;
   try {
     // The backend is a different origin (another port), so the browser only
@@ -129,6 +134,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     throw new ApiError(await readErrorMessage(response), response.status);
   }
+  return response;
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetchOk(path, init);
   // 204 means "done, nothing to send back" (used by DELETE), so there is no JSON to read.
   if (response.status === 204) {
     return undefined as T;
@@ -151,10 +161,6 @@ function jsonRequest(method: string, body: unknown): RequestInit {
 function payingRequest(body: unknown, pin: string): RequestInit {
   const init = jsonRequest("POST", body);
   return { ...init, headers: { ...init.headers, "X-Payment-Pin": pin } };
-}
-
-export function getHealth(): Promise<HealthResponse> {
-  return request("/health");
 }
 
 /** Create an account. The backend also logs the new user in. */
@@ -194,30 +200,26 @@ export function logout(): Promise<void> {
   return request("/auth/logout", { method: "POST" });
 }
 
-/** The logged-in user, or null if nobody is logged in. */
-export async function getCurrentUser(): Promise<User | null> {
+/** Like request(), but null when the backend answers `emptyStatus`, which means "there is none". */
+async function requestOrNull<T>(path: string, emptyStatus: number): Promise<T | null> {
   try {
-    return await request<User>("/auth/me");
+    return await request<T>(path);
   } catch (error) {
-    // 401 is the backend's normal answer for "not logged in", not a failure.
-    if (error instanceof ApiError && error.status === 401) {
+    if (error instanceof ApiError && error.status === emptyStatus) {
       return null;
     }
     throw error;
   }
 }
 
-/** The logged-in user's household, or null if they are not in one. */
-export async function getHousehold(): Promise<Household | null> {
-  try {
-    return await request<Household>("/household");
-  } catch (error) {
-    // 404 is the backend's normal answer for "you are not in a household".
-    if (error instanceof ApiError && error.status === 404) {
-      return null;
-    }
-    throw error;
-  }
+/** The logged-in user, or null if nobody is logged in (the backend answers 401). */
+export function getCurrentUser(): Promise<User | null> {
+  return requestOrNull("/auth/me", 401);
+}
+
+/** The logged-in user's household, or null if they are not in one (the backend answers 404). */
+export function getHousehold(): Promise<Household | null> {
+  return requestOrNull("/household", 404);
 }
 
 export function createHousehold(name: string): Promise<Household> {
@@ -351,17 +353,7 @@ export function setPin(pin: string, currentPin: string | null): Promise<PinStatu
  * It is a file, not JSON, so it is returned as a Blob (a chunk of raw data).
  */
 export async function downloadStatement(month: string): Promise<Blob> {
-  let response: Response;
-  try {
-    response = await fetch(`${API_URL}/wallet/statement?month=${month}`, {
-      credentials: "include",
-    });
-  } catch {
-    throw new ApiError("Could not reach the backend. Is it running?", 0);
-  }
-  if (!response.ok) {
-    throw new ApiError(await readErrorMessage(response), response.status);
-  }
+  const response = await fetchOk(`/wallet/statement?month=${month}`);
   return response.blob();
 }
 

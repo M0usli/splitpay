@@ -333,3 +333,27 @@ def test_every_wallet_endpoint_requires_a_login(
     anonymous_client: TestClient, method: str, path: str
 ):
     assert anonymous_client.request(method, path).status_code == 401
+
+
+def test_a_request_id_used_for_another_kind_of_transfer_is_refused(
+    client: TestClient, other_client: TestClient
+):
+    """The same wallets and amount are not enough: the kind must match too."""
+    top_up(client, "50.00")
+    household = client.post("/household", json={"name": "Flat"}).json()
+    joined = other_client.post(
+        "/household/join", json={"invite_code": household["invite_code"]}
+    ).json()
+    alex_id = next(member["id"] for member in joined["members"] if member["email"] == ALEX)
+    shared_key = key()
+    client.post(
+        "/household/pay",
+        json={"to_user_id": alex_id, "amount": "5.00", "idempotency_key": shared_key},
+    )
+
+    reused = client.post(
+        "/wallet/send", json={"to_email": ALEX, "amount": "5.00", "idempotency_key": shared_key}
+    )
+
+    assert reused.status_code == 409
+    assert balance(client) == "45.00"

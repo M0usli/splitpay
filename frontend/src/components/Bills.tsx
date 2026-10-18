@@ -7,6 +7,7 @@ import AmountPad from "@/components/AmountPad";
 import PinPrompt from "@/components/PinPrompt";
 import StepHeader from "@/components/StepHeader";
 import {
+  errorMessage,
   getWallet,
   listBillers,
   listBillPayments,
@@ -59,10 +60,6 @@ const primaryButtonClass =
 const dashedButtonClass =
   "w-full rounded-xl border border-dashed border-zinc-300 px-4 py-3 text-sm font-medium " +
   "text-zinc-700 hover:border-emerald-400";
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong";
-}
 
 async function loadBillsData(): Promise<BillsData> {
   const [wallet, billers, saved, payments] = await Promise.all([

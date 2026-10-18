@@ -53,12 +53,11 @@ def get_summary(
         Expense.currency == currency,
     )
 
-    # 1. This month's total and number of expenses. COALESCE turns "no rows" into 0.
+    # COALESCE turns "no rows" into 0.
     month_total, expense_count = db.execute(
         select(func.coalesce(func.sum(Expense.total), 0), func.count()).where(*in_month)
     ).one()
 
-    # 2. This month's total per category, largest first.
     category_rows = db.execute(
         select(Expense.category, func.sum(Expense.total).label("total"))
         .where(*in_month)
@@ -66,8 +65,8 @@ def get_summary(
         .order_by(desc("total"), Expense.category)
     ).all()
 
-    # 3. Total per month over the last six months. The database only returns
-    #    months that have expenses, so the empty ones are filled in with 0.
+    # The database only returns months that have expenses; the empty ones
+    # are filled in with 0 below.
     month_label = func.to_char(Expense.date, "YYYY-MM")
     totals_by_month = dict(
         db.execute(
@@ -75,8 +74,8 @@ def get_summary(
         ).all()
     )
 
-    # 4. Top merchants over the same six months. Grouping ignores case and
-    #    surrounding spaces, so "FRESHCO" and "FreshCo" count as one merchant.
+    # Grouping ignores case and surrounding spaces, so "FRESHCO" and
+    # "FreshCo" count as one merchant.
     merchant_key = func.lower(func.trim(Expense.merchant))
     merchant_rows = db.execute(
         select(

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { previewItemSplit, type Member, type SplitPreview } from "@/lib/api";
+import { errorMessage, previewItemSplit, type Member, type SplitPreview } from "@/lib/api";
 import { formatMoney } from "@/lib/format";
 import { canSplitRow, emptyRow, splitRow, toSplitItems, type ItemRow } from "@/lib/itemSplit";
 import { toCents } from "@/lib/split";
@@ -191,8 +191,7 @@ function SplitSummary({ rows, tax, total, currency, myId }: SplitSummaryProps) {
         })
         .catch((error: unknown) => {
           if (isCurrent) {
-            const message = error instanceof Error ? error.message : "Something went wrong";
-            setSummary({ state: "error", message });
+            setSummary({ state: "error", message: errorMessage(error) });
           }
         });
     }, PREVIEW_DELAY_MS);

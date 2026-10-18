@@ -10,7 +10,10 @@ import { uploadReceipt, type Receipt } from "@/lib/api";
 // "push" early enough for the mock below to use it.)
 const push = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
-vi.mock("@/lib/api", () => ({ uploadReceipt: vi.fn() }));
+vi.mock("@/lib/api", async (importOriginal) => ({
+  errorMessage: (await importOriginal<typeof import("@/lib/api")>()).errorMessage,
+  uploadReceipt: vi.fn(),
+}));
 
 const RECEIPT: Receipt = {
   id: 7,

@@ -31,6 +31,15 @@ class SplitItem(BaseModel):
     shared_by: list[int] = Field(min_length=1)
 
 
+def check_shares(shares: list[Share], total: Decimal) -> None:
+    """One share per person, and the shares add up to the total."""
+    user_ids = [share.user_id for share in shares]
+    if len(user_ids) != len(set(user_ids)):
+        raise ValueError("each person can have only one share")
+    if sum(share.amount for share in shares) != total:
+        raise ValueError("the shares must add up to the total")
+
+
 class ExpenseBase(BaseModel):
     """Fields the user can set on an expense."""
 
@@ -58,13 +67,8 @@ class ExpenseWrite(ExpenseBase):
 
     @model_validator(mode="after")
     def shares_add_up_to_the_total(self) -> Self:
-        if not self.is_shared or self.shares is None or self.split_items is not None:
-            return self
-        user_ids = [share.user_id for share in self.shares]
-        if len(user_ids) != len(set(user_ids)):
-            raise ValueError("each person can have only one share")
-        if sum(share.amount for share in self.shares) != self.total:
-            raise ValueError("the shares must add up to the total")
+        if self.is_shared and self.shares is not None and self.split_items is None:
+            check_shares(self.shares, self.total)
         return self
 
 

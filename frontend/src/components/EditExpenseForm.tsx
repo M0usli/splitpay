@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import ExpenseForm from "@/components/ExpenseForm";
 import {
+  errorMessage,
   getExpense,
   getReceipt,
   rerunExtraction,
@@ -23,10 +24,6 @@ type Status =
 type EditExpenseFormProps = {
   expenseId: number;
 };
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong";
-}
 
 /** The expense, and its receipt if it has one, so its items can be offered for splitting. */
 async function loadExpense(expenseId: number): Promise<{ expense: Expense; receipt: Receipt | null }> {
@@ -48,9 +45,22 @@ export default function EditExpenseForm({ expenseId }: EditExpenseFormProps) {
   const [readError, setReadError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Ignore the answer if the page has moved on to another expense meanwhile.
+    let isCurrent = true;
     loadExpense(expenseId)
-      .then((loaded) => setStatus({ state: "loaded", ...loaded }))
-      .catch((error: unknown) => setStatus({ state: "error", message: errorMessage(error) }));
+      .then((loaded) => {
+        if (isCurrent) {
+          setStatus({ state: "loaded", ...loaded });
+        }
+      })
+      .catch((error: unknown) => {
+        if (isCurrent) {
+          setStatus({ state: "error", message: errorMessage(error) });
+        }
+      });
+    return () => {
+      isCurrent = false;
+    };
   }, [expenseId]);
 
   if (status.state === "loading") {

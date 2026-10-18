@@ -1,5 +1,6 @@
 import csv
 import io
+from collections.abc import Iterable
 from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, Response, status
@@ -12,8 +13,15 @@ from app.dates import MonthQuery, month_range
 from app.enums import Category
 from app.extraction.schemas import DEFAULT_CURRENCY, ExtractedFields
 from app.models import Expense, ExpenseShare, Receipt, User
-from app.schemas.expense import ExpenseCreate, ExpenseRead, ExpenseUpdate, ExpenseWrite
-from app.splitting import ItemLine, split_by_items, split_equally
+from app.schemas.expense import (
+    ExpenseCreate,
+    ExpenseRead,
+    ExpenseUpdate,
+    ExpenseWrite,
+    SplitItem,
+)
+from app.splitting import ItemLine, PersonSplit, split_by_items, split_equally
+from app.statement import safe_cell
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
@@ -79,7 +87,10 @@ def work_out_shares(db: Session, user: User, payload: ExpenseWrite) -> dict[int,
     )
 
     if payload.split_items is not None:
-        return shares_from_items(payload, member_ids, user.id)
+        people = split_items_or_422(
+            payload.split_items, member_ids, payload.tax or Decimal("0"), payload.total, user.id
+        )
+        return {person: split.amount for person, split in people.items()}
 
     if payload.shares is None:
         # No parts given: split equally among everyone. The payer comes first,
@@ -96,13 +107,13 @@ def work_out_shares(db: Session, user: User, payload: ExpenseWrite) -> dict[int,
     return parts
 
 
-def shares_from_items(
-    payload: ExpenseWrite, member_ids: list[int], payer_id: int
-) -> dict[int, Decimal]:
-    """Each person's part of an expense that is split item by item."""
+def split_items_or_422(
+    items: list[SplitItem], member_ids: Iterable[int], tax: Decimal, total: Decimal, payer_id: int
+) -> dict[int, PersonSplit]:
+    """Split a receipt item by item, or answer 422 if it cannot be split."""
     lines = [
         ItemLine(price=item.price, is_taxable=item.is_taxable, shared_by=item.shared_by)
-        for item in payload.split_items or []
+        for item in items
     ]
     if any(not set(line.shared_by) <= set(member_ids) for line in lines):
         raise HTTPException(
@@ -110,10 +121,9 @@ def shares_from_items(
             detail="Items can only be shared with members of your household",
         )
     try:
-        people = split_by_items(lines, payload.tax or Decimal("0"), payload.total, payer_id)
+        return split_by_items(lines, tax, total, payer_id)
     except ValueError as error:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
-    return {person: split.amount for person, split in people.items()}
 
 
 def split_items_to_store(payload: ExpenseWrite) -> list[dict] | None:
@@ -181,18 +191,6 @@ def find_expenses(
     return list(db.scalars(query))
 
 
-def protect_spreadsheet_cell(text: str) -> str:
-    """Stop a spreadsheet from running a text cell as a formula.
-
-    Excel and Google Sheets treat a cell starting with = + - or @ as a
-    formula. A merchant name read from a receipt could start that way, so we
-    put an apostrophe in front, which makes the spreadsheet show it as text.
-    """
-    if text.startswith(("=", "+", "-", "@")):
-        return "'" + text
-    return text
-
-
 @router.get("", response_model=list[ExpenseRead])
 def list_expenses(
     db: DbSession, user: CurrentUser, month: MonthQuery = None, category: Category | None = None
@@ -219,13 +217,13 @@ def export_expenses_csv(
         writer.writerow(
             [
                 expense.date.isoformat(),
-                protect_spreadsheet_cell(expense.merchant),
+                safe_cell(expense.merchant),
                 expense.category.value,
                 expense.subtotal if expense.subtotal is not None else "",
                 expense.tax if expense.tax is not None else "",
                 expense.total,
                 expense.currency,
-                protect_spreadsheet_cell(expense.notes or ""),
+                safe_cell(expense.notes),
                 "receipt" if expense.receipt_id is not None else "manual",
                 "yes" if expense.was_edited else "no",
             ]

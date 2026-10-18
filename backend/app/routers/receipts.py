@@ -1,4 +1,3 @@
-import datetime
 import logging
 from pathlib import Path
 
@@ -20,6 +19,7 @@ from app.ocr.pipeline import extract_text
 from app.ocr.preprocessing import preprocess_image
 from app.rate_limit import limiter, too_many
 from app.schemas.receipt import ReceiptRead
+from app.spending import start_of_today
 from app.storage import detect_file_extension, save_upload
 
 router = APIRouter(prefix="/receipts", tags=["receipts"])
@@ -53,15 +53,15 @@ def upload_receipt(
     If OCR or extraction fails, the receipt is still saved, with status
     "failed" and a message explaining why.
     """
-    # Each upload is a paid AI call, so one user may only do so many a day.
-    midnight = datetime.datetime.now(datetime.UTC).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
+    # Each upload that gets as far as the AI is a paid call, so one user may
+    # only make so many a day. An upload whose OCR found no text never
+    # reached the AI and does not count.
     uploaded_today = db.scalar(
         select(func.count())
         .select_from(Receipt)
         .where(Receipt.user_id == user.id)
-        .where(Receipt.created_at >= midnight)
+        .where(Receipt.created_at >= start_of_today())
+        .where(Receipt.raw_text.is_not(None))
     )
     if uploaded_today >= settings.daily_scan_limit:
         raise HTTPException(
@@ -136,15 +136,16 @@ def rerun_extraction(
     Useful after a failed extraction (for example the AI service was down),
     without having to upload the file again.
     """
-    # Running the AI again costs the same as a new scan: 10 an hour per user.
-    retry_after = limiter.hit(f"extract:{user.id}", limit=10, window_seconds=3600)
-    if retry_after is not None:
-        raise too_many(retry_after)
     receipt = get_receipt_or_404(db, user, receipt_id)
     if not receipt.raw_text:
         raise HTTPException(
             status.HTTP_409_CONFLICT, detail="This receipt has no OCR text to extract from."
         )
+    # Running the AI again costs the same as a new scan: 10 an hour per user.
+    # Counted only now, so a request that was refused above costs no try.
+    retry_after = limiter.hit(f"extract:{user.id}", limit=10, window_seconds=3600)
+    if retry_after is not None:
+        raise too_many(retry_after)
     run_extraction(receipt, llm)
     db.commit()
     db.refresh(receipt)

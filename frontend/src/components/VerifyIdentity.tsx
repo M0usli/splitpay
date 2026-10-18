@@ -4,7 +4,13 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 
 import StepHeader from "@/components/StepHeader";
-import { getIdentity, submitIdentity, type DocumentType, type Identity } from "@/lib/api";
+import {
+  errorMessage,
+  getIdentity,
+  submitIdentity,
+  type DocumentType,
+  type Identity,
+} from "@/lib/api";
 
 type Status =
   | { state: "loading" }
@@ -39,10 +45,6 @@ const inputClass =
 const choiceClass = "rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors";
 const chosenClass = " border-emerald-600 bg-emerald-600 text-white";
 const notChosenClass = " border-zinc-300 bg-white hover:border-emerald-400";
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong";
-}
 
 function documentName(type: DocumentType | null | undefined): string {
   return DOCUMENTS.find((document) => document.type === type)?.name ?? "Document";

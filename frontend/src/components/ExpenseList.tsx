@@ -7,6 +7,7 @@ import ExpenseFilterBar from "@/components/ExpenseFilterBar";
 import ExpenseTable from "@/components/ExpenseTable";
 import {
   deleteExpense,
+  errorMessage,
   expensesExportUrl,
   listExpenses,
   type Expense,
@@ -20,10 +21,6 @@ type Status =
   | { state: "error"; message: string };
 
 const NO_FILTERS: ExpenseFilters = { month: "", category: "" };
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong";
-}
 
 /** The total of the listed expenses, or null if they use different currencies. */
 function totalOf(expenses: Expense[]): string | null {

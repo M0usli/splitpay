@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 
 import { useAuth } from "@/components/AuthProvider";
 import NotificationBell from "@/components/NotificationBell";
@@ -52,7 +52,10 @@ export default function NavBar() {
         {auth.state === "signedIn" && (
           <>
             {/* On a phone the bell sits beside the Menu button; on a laptop, at the far right. */}
-            <NotificationBell />
+            {/* The bell reads the address too, so it waits for it the same way. */}
+            <Suspense fallback={null}>
+              <NotificationBell />
+            </Suspense>
             <button
               type="button"
               aria-label="Menu"

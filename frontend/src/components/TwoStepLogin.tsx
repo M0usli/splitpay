@@ -6,6 +6,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import {
   disableTwoStep,
   enableTwoStep,
+  errorMessage,
   getTwoStep,
   startTwoStepSetup,
   type TwoStepSetup,
@@ -24,10 +25,6 @@ const primaryButtonClass =
   "disabled:bg-zinc-300";
 const plainButtonClass =
   "rounded-xl border border-zinc-300 px-4 py-2.5 text-sm font-medium hover:bg-zinc-100";
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong";
-}
 
 /** The field for the 6-digit code from the authenticator app. */
 function CodeField({ value, onChange }: { value: string; onChange: (value: string) => void }) {

@@ -7,6 +7,7 @@ import {
   CATEGORIES,
   connectBank,
   createBankLinkToken,
+  errorMessage,
   getBankStatus,
   ignoreBankTransaction,
   listBankTransactions,
@@ -37,10 +38,6 @@ const smallButtonClass =
   "disabled:opacity-50";
 const cardClass = "rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm";
 const headingClass = "text-sm font-semibold text-zinc-700";
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong";
-}
 
 async function loadBankData(): Promise<BankData> {
   const [status, transactions] = await Promise.all([getBankStatus(), listBankTransactions()]);
@@ -90,15 +87,17 @@ export default function BankImport() {
     }
   }
 
+  /**
+   * The backend gets a token that opens Plaid's window, the user picks a bank
+   * and signs in there, and the backend swaps the one-time token Plaid gives
+   * back for the real one.
+   */
   async function handleConnect(): Promise<string | null> {
-    // 1. The backend asks Plaid for a token that opens its window.
     const { link_token } = await createBankLinkToken();
-    // 2. The user picks a bank and signs in, inside Plaid's window.
     const result = await openPlaidLink(link_token);
     if (result === null) {
       return null;
     }
-    // 3. The backend swaps the one-time token for the real one and keeps it.
     await connectBank(result.publicToken, result.institutionName);
     return `${result.institutionName} is connected. Import its transactions to review them.`;
   }

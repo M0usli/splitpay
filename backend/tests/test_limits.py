@@ -234,4 +234,5 @@ def test_move_money_refuses_over_the_limit_and_says_what_is_left(
 
 
 def test_the_two_limits_are_what_the_page_says():
-    assert (UNVERIFIED_DAILY_LIMIT, VERIFIED_DAILY_LIMIT) == (Decimal("50.00"), Decimal("2000.00"))
+    assert UNVERIFIED_DAILY_LIMIT == Decimal("50.00")
+    assert VERIFIED_DAILY_LIMIT == Decimal("2000.00")

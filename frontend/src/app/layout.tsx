@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
+
 import AuthProvider from "@/components/AuthProvider";
 import NavBar from "@/components/NavBar";
 import RequireLogin from "@/components/RequireLogin";
@@ -27,6 +29,14 @@ export const viewport: Viewport = {
   themeColor: "#18181b",
 };
 
+function LoadingPage() {
+  return (
+    <main className="mx-auto w-full max-w-xl flex-1 px-6 py-10">
+      <p className="text-sm text-zinc-500">Loading…</p>
+    </main>
+  );
+}
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
@@ -36,7 +46,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <AuthProvider>
           <NavBar />
-          <RequireLogin>{children}</RequireLogin>
+          {/* RequireLogin reads the address, which is only known when a request
+              arrives. Suspense lets the rest of the page be prepared ahead of
+              time; without it the production build refuses to prerender. */}
+          <Suspense fallback={<LoadingPage />}>
+            <RequireLogin>{children}</RequireLogin>
+          </Suspense>
         </AuthProvider>
       </body>
     </html>

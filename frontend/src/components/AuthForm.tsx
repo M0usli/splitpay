@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { useAuth } from "@/components/AuthProvider";
-import { ApiError, getSignupInfo, login, register, type SignupInfo } from "@/lib/api";
+import { ApiError, errorMessage, getSignupInfo, login, register, type SignupInfo } from "@/lib/api";
 
 type AuthFormProps = {
   /** "login" for an existing account, "register" to create one. */
@@ -71,7 +71,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
       // Telling the app who is logged in makes RequireLogin open the home page.
       signIn(user);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Something went wrong");
+      setError(errorMessage(caught));
       // 403 on logging in means: the password was right, and this account
       // also needs the code from its authenticator app.
       if (!isRegister && caught instanceof ApiError && caught.status === 403) {

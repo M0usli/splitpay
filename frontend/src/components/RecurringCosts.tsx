@@ -8,6 +8,7 @@ import {
   CATEGORIES,
   createRecurring,
   deleteRecurring,
+  errorMessage,
   listRecurring,
   runRecurring,
   updateRecurring,
@@ -66,10 +67,6 @@ function monthlyTotal(costs: Recurring[]): string | null {
     return null;
   }
   return formatMoney(sumAmounts(running.map((cost) => cost.total)), running[0].currency);
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong";
 }
 
 /** "1st", "2nd", "3rd", "4th" ... "28th". */

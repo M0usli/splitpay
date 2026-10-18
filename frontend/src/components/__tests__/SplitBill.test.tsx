@@ -24,7 +24,8 @@ vi.mock("@/components/AuthProvider", () => ({
     auth: { state: "signedIn", user: { id: 1, email: "sam@example.com", created_at: "" } },
   }),
 }));
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/api", async (importOriginal) => ({
+  errorMessage: (await importOriginal<typeof import("@/lib/api")>()).errorMessage,
   createHousehold: vi.fn(),
   deleteSettlement: vi.fn(),
   getBalance: vi.fn(),

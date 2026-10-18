@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 
 import { NOTIFICATIONS_READ_EVENT } from "@/components/NotificationBell";
-import { getNotifications, markNotificationsRead, type Notification } from "@/lib/api";
+import {
+  errorMessage,
+  getNotifications,
+  markNotificationsRead,
+  type Notification,
+} from "@/lib/api";
 
 type Status =
   | { state: "loading" }
@@ -32,8 +37,7 @@ export default function Notifications() {
       })
       .catch((error: unknown) => {
         if (isCurrent) {
-          const message = error instanceof Error ? error.message : "Something went wrong";
-          setStatus({ state: "error", message });
+          setStatus({ state: "error", message: errorMessage(error) });
         }
       });
     return () => {

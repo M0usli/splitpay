@@ -14,8 +14,7 @@ const PUBLIC_PATHS = ["/login", "/register"];
  * the log-in page, and signed-in users are sent away from it.
  *
  * This is for a smooth experience, not for security. Anyone can change code
- * that runs in their own browser, so the real protection must be on the
- * backend (Phase 3).
+ * that runs in their own browser, so the real protection is on the backend.
  */
 export default function RequireLogin({ children }: { children: ReactNode }) {
   const { auth } = useAuth();

@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.enums import Category
 from app.recurring import MAX_DAY_OF_MONTH
-from app.schemas.expense import Money, Share
+from app.schemas.expense import Money, Share, check_shares
 
 
 class RecurringWrite(BaseModel):
@@ -28,13 +28,8 @@ class RecurringWrite(BaseModel):
 
     @model_validator(mode="after")
     def shares_add_up_to_the_total(self) -> Self:
-        if not self.is_shared or self.shares is None:
-            return self
-        user_ids = [share.user_id for share in self.shares]
-        if len(user_ids) != len(set(user_ids)):
-            raise ValueError("each person can have only one share")
-        if sum(share.amount for share in self.shares) != self.total:
-            raise ValueError("the shares must add up to the total")
+        if self.is_shared and self.shares is not None:
+            check_shares(self.shares, self.total)
         return self
 
 

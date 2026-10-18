@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-import { getCurrentUser, runRecurring, type User } from "@/lib/api";
+import { errorMessage, getCurrentUser, runRecurring, type User } from "@/lib/api";
 
 export type AuthStatus =
   | { state: "loading" }
@@ -54,8 +54,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         setAuth(user === null ? { state: "signedOut" } : { state: "signedIn", user });
       })
       .catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : "Something went wrong";
-        setAuth({ state: "error", message });
+        setAuth({ state: "error", message: errorMessage(error) });
       });
   }, []);
 

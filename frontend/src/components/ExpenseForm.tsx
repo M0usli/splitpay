@@ -7,6 +7,7 @@ import SharingFields from "@/components/SharingFields";
 import { useHousehold } from "@/components/useHousehold";
 import {
   CATEGORIES,
+  errorMessage,
   type Category,
   type ExpenseUpdate,
   type ExtractedItem,
@@ -159,7 +160,7 @@ export default function ExpenseForm({
         split_items: splitItems,
       });
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Something went wrong");
+      setError(errorMessage(caught));
       setIsSubmitting(false);
     }
   }

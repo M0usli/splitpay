@@ -304,3 +304,21 @@ def test_delete_missing_expense_returns_404(client: TestClient):
     response = client.delete("/expenses/999")
 
     assert response.status_code == 404
+
+
+def test_the_export_also_guards_cells_that_start_with_a_tab(client: TestClient):
+    client.post(
+        "/expenses",
+        json={
+            "merchant": "\t=1+1",
+            "date": "2026-10-08",
+            "total": "1.00",
+            "category": "Other",
+            "notes": "\r@SUM(A1)",
+        },
+    )
+
+    lines = client.get("/expenses/export.csv").text.splitlines()
+
+    assert "'\t=1+1" in lines[1]
+    assert "'\r@SUM(A1)" in client.get("/expenses/export.csv").text

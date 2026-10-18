@@ -2,7 +2,6 @@
 log-ins may be tried, and how many receipts one user may scan a day.
 """
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.config import Settings
@@ -128,13 +127,33 @@ def test_the_scan_limit_is_per_user(
     assert upload(other_client, PNG).status_code == 201
 
 
-@pytest.mark.parametrize("limit", [10])
-def test_running_the_ai_again_is_limited(client: TestClient, limit: int):
+def test_running_the_ai_again_is_limited_to_10_an_hour(client: TestClient):
     receipt = upload(client, PNG).json()
 
-    answers = [
-        client.post(f"/receipts/{receipt['id']}/extract").status_code for _ in range(limit + 1)
-    ]
+    answers = [client.post(f"/receipts/{receipt['id']}/extract").status_code for _ in range(11)]
 
-    assert answers[-1] == 429
-    assert 429 not in answers[:limit]
+    assert 429 not in answers[:10]
+    assert answers[10] == 429
+
+
+def test_an_upload_whose_ocr_failed_does_not_count_toward_the_scan_limit(
+    client: TestClient, test_settings: Settings, fake_ocr
+):
+    test_settings.daily_scan_limit = 1
+    fake_ocr.text = ""  # OCR finds nothing, so the AI is never called
+
+    assert upload(client, PNG).json()["status"] == "failed"
+
+    fake_ocr.text = "FAKE STORE\nTOTAL 12.34"
+    assert upload(client, PNG).status_code == 201
+    assert upload(client, PNG).status_code == 429
+
+
+def test_a_refused_rerun_does_not_use_up_a_try(client: TestClient, other_client: TestClient):
+    others = upload(other_client, PNG).json()
+    for _ in range(10):
+        # Someone else's receipt: refused before the AI, so no try is counted.
+        assert client.post(f"/receipts/{others['id']}/extract").status_code == 404
+
+    mine = upload(client, PNG).json()
+    assert client.post(f"/receipts/{mine['id']}/extract").status_code == 200

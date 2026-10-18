@@ -35,7 +35,7 @@ def to_read(db: Session, request: MoneyRequest, user: User) -> MoneyRequestRead:
     )
 
 
-def get_pending_or_error(db: Session, request_id: int, *, user: User, asked: bool) -> MoneyRequest:
+def lock_request_or_404(db: Session, request_id: int, *, user: User, asked: bool) -> MoneyRequest:
     """Find a request the user may act on, and lock it.
 
     `asked=True` is for the person who was asked to pay (pay, decline);
@@ -107,7 +107,7 @@ def pay_request(
     request_id: int, payload: MoneyRequestPay, db: DbSession, user: PayingUser
 ) -> MoneyRequestRead:
     """Pay a request from the wallet. The money moves and the request is closed together."""
-    request = get_pending_or_error(db, request_id, user=user, asked=True)
+    request = lock_request_or_404(db, request_id, user=user, asked=True)
     if request.status == MoneyRequestStatus.PAID:
         # A repeat of the tap that paid it: say so again, move nothing.
         return to_read(db, request, user)
@@ -139,7 +139,7 @@ def pay_request(
 @router.post("/{request_id}/decline", response_model=MoneyRequestRead)
 def decline_request(request_id: int, db: DbSession, user: CurrentUser) -> MoneyRequestRead:
     """Say no to a request. Only the person who was asked can."""
-    request = get_pending_or_error(db, request_id, user=user, asked=True)
+    request = lock_request_or_404(db, request_id, user=user, asked=True)
     require_pending(request)
     resolve(request, MoneyRequestStatus.DECLINED)
     notify(
@@ -155,7 +155,7 @@ def decline_request(request_id: int, db: DbSession, user: CurrentUser) -> MoneyR
 @router.post("/{request_id}/cancel", response_model=MoneyRequestRead)
 def cancel_request(request_id: int, db: DbSession, user: CurrentUser) -> MoneyRequestRead:
     """Take a request back. Only the person who made it can."""
-    request = get_pending_or_error(db, request_id, user=user, asked=False)
+    request = lock_request_or_404(db, request_id, user=user, asked=False)
     require_pending(request)
     resolve(request, MoneyRequestStatus.CANCELLED)
     notify(

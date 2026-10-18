@@ -8,6 +8,7 @@ import Avatar from "@/components/Avatar";
 import {
   createHousehold,
   deleteSettlement,
+  errorMessage,
   getBalance,
   getHousehold,
   joinHousehold,
@@ -62,10 +63,6 @@ function netPillClass(net: string): string {
   return Number(net) === 0 ? "bg-zinc-100 text-zinc-600" : "bg-emerald-100 text-emerald-800";
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong";
-}
-
 /** Load everything the page shows. The four requests run at the same time. */
 async function loadHouseholdData(): Promise<HouseholdData | null> {
   const household = await getHousehold();
@@ -97,7 +94,6 @@ export default function SplitBill() {
   // second tap on a Pay button finds the id the first tap made.
   const payIds = useRef(new RequestIds());
 
-  // Load the page's data once, when the page opens.
   useEffect(() => {
     let isCurrent = true;
     loadHouseholdData()

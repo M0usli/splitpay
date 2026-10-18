@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import PinEntry, { PIN_LENGTH } from "@/components/PinEntry";
 import StepHeader from "@/components/StepHeader";
 import TwoStepLogin from "@/components/TwoStepLogin";
-import { getPin, setPin, type PinStatus } from "@/lib/api";
+import { errorMessage, getPin, setPin, type PinStatus } from "@/lib/api";
 
 type Status =
   | { state: "loading" }
@@ -25,10 +25,6 @@ type Stage =
 const cardClass = "rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm";
 const primaryButtonClass =
   "rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500";
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Something went wrong";
-}
 
 const TITLES = { current: "Your current PIN", new: "Choose a new PIN", repeat: "Enter it again" };
 
